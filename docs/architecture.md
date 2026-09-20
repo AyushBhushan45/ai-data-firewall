@@ -1,13 +1,14 @@
 # AI Data Firewall: Complete System Architecture & Technical Design
 
 > [!IMPORTANT]
-> **First Security Detector Milestone (Step 5 Implemented)**
+> **Policy Engine Milestone (Step 6 Implemented)**
 >
-> Step 5 implements the first concrete security inspection module:
-> - **`SecretDetector`** ([`src/aifirewall/detectors/secret.py`](../src/aifirewall/detectors/secret.py)): Pattern-based detection of common API keys, personal access tokens, and explicit credential assignments.
-> - **Core Guarantees**: Deterministic execution, accurate character coordinates, false-positive placeholder suppression, zero raw secret retention, and strict decoupling from enforcement policies (`DETECTION ≠ POLICY`).
+> Step 6 implements the declarative policy evaluation engine:
+> - **`PolicyEngine`** ([`src/aifirewall/policy/engine.py`](../src/aifirewall/policy/engine.py)): Evaluates normalized detector findings against declarative rules.
+> - **Domain Models**: `PolicyRule`, `PolicyConfig`, `PolicyContext` ([`src/aifirewall/policy/models.py`](../src/aifirewall/policy/models.py)).
+> - **Core Guarantees**: Strict architectural boundary (`DETECTION ≠ POLICY ≠ TRANSFORMATION`), normalized findings input (`DetectionResult[]`), deterministic severity ordering, inclusive confidence thresholds, numeric rule priorities, action precedence conflict resolution ($\mathbf{BLOCK > REDACT > WARN > ALLOW}$), default `ALLOW` safety, and privacy-preserving explainable decisions.
 >
-> **Explicit Boundary:** Policy evaluation rules, redaction transformations, HTTP proxy daemons, PII detectors, prompt-injection detectors, and provider adapters remain **PLANNED FOR FUTURE STEPS**.
+> **Explicit Boundary:** Text transformation (redaction), HTTP proxy daemons, PII detectors, prompt-injection detectors, and provider adapters remain **PLANNED FOR FUTURE STEPS**.
 
 ---
 
@@ -122,7 +123,7 @@ src/aifirewall/
 | `detectors/base.py`| Structural subtyping contract: `Detector` protocol and minimal `DetectorContext`. | **Implemented in Step 4** |
 | `detectors/secret.py`| Pattern-based detection of common API keys, personal access tokens, and credential assignments (`SecretDetector`). | **Implemented in Step 5** |
 | `detectors/` (others)| Scanners for PII, prompt injections, and future detectors. | *Planned for Future Steps* |
-| `policies/` | Declarative policy evaluation and deterministic conflict resolution. | *Planned for Future Steps* |
+| `policy/` | Declarative policy models (`PolicyRule`, `PolicyConfig`, `PolicyContext`) and deterministic evaluation engine (`PolicyEngine`). | **Implemented in Step 6** |
 | `transform/` | Surgical text masking, synthetic replacement, and span merging. | *Planned for Future Steps* |
 | `providers/` | External provider format mappings and transport adapters. | *Planned for Future Steps* |
 | `proxy/` | Local HTTP reverse-proxy runtime daemon. | *Planned for Future Steps* |
@@ -312,22 +313,53 @@ Detectors receive minimal contextual information via `DetectorContext`:
 
 ## 7. Policy Engine & Precedence Model
 
-The `PolicyEngine` evaluates the aggregated list of `DetectionResult` objects against user-configured rules.
+The `PolicyEngine` evaluates the aggregated list of `DetectionResult` objects against declarative `PolicyRule` objects to produce an explainable `PolicyDecision`.
 
-### Deterministic Action Precedence
-When multiple detectors produce findings with differing recommended actions, the policy engine resolves conflicts using a strict, deterministic hierarchy:
+### Core Architectural Separation
 
-$$\mathbf{BLOCK} > \mathbf{REDACT} > \mathbf{WARN} > \mathbf{ALLOW}$$
+$$\mathbf{DETECTION \ne POLICY \ne TRANSFORMATION}$$
 
-- If any active finding triggers a `BLOCK` rule, the **entire request is blocked immediately**.
-- If no finding triggers `BLOCK`, but one or more findings trigger `REDACT`, the **request is allowed after transforming the sensitive spans**.
-- If findings trigger only `WARN`, the request proceeds unaltered, and warning events are logged.
-- If no rules match or all findings evaluate to `ALLOW`, the request proceeds silently.
+- **Detector**: *"What did I find?"* (Observes text, emits `DetectionResult[]`).
+- **Policy**: *"What should the firewall do about that finding?"* (Evaluates findings, emits `PolicyDecision`).
+- **Transformation**: *"How should the content be modified?"* (Applies masking/redaction if action is `REDACT`).
 
-### User Rule Overrides
-User-defined policy rules take explicit precedence over detector default recommendations. For example:
-- A developer may configure: `category: "openai_api_key" -> action: BLOCK` (overriding a default `WARN`).
-- A developer in a local test environment may configure: `category: "email" -> action: WARN` (overriding a default `REDACT`).
+The policy engine operates purely on normalized `DetectionResult` instances; it never inspects raw prompts, runs regexes, or mutates text.
+
+### Policy Rule Model (`PolicyRule`)
+
+A `PolicyRule` specifies deterministic match criteria (evaluated with strict AND logic):
+- `rule_id`: Unique non-empty string identifier.
+- `action`: Prescribed action (`ALLOW`, `WARN`, `REDACT`, `BLOCK`).
+- `description`: Safe diagnostic summary of rule purpose.
+- `category`: Optional `DetectionCategory` filter (e.g. `SECRET`, `PII`).
+- `minimum_severity`: Optional minimum `Severity` threshold (`INFO < LOW < MEDIUM < HIGH < CRITICAL`).
+- `minimum_confidence`: Optional minimum confidence threshold in `[0.0, 1.0]` (inclusive).
+- `detector_name`: Optional detector identifier filter.
+- `source`: Optional `ContentSource` filter (matched against `finding.location.source`).
+- `direction`: Optional `ContentDirection` filter (matched via context or finding metadata).
+- `enabled`: Boolean flag (disabled rules never match).
+- `priority`: Numeric priority rank (default: 100; higher number = higher precedence).
+
+### Deterministic Conflict Resolution
+
+When multiple rules match across one or more findings, the engine resolves conflicts using an explicit 4-tier sort order:
+1. **Rule Priority**: Higher numeric priority wins (`rule.priority` descending).
+2. **Action Precedence**: Equal-priority conflicts are resolved by action severity:
+   $$\mathbf{BLOCK} > \mathbf{REDACT} > \mathbf{WARN} > \mathbf{ALLOW}$$
+3. **Rule Identifier**: Tie-broken by alphabetical order of `rule.rule_id`.
+4. **Detection Identifier**: Tie-broken by alphabetical order of `detection.detection_id`.
+
+This guarantees that evaluation is 100% deterministic and independent of the order in which findings are supplied.
+
+### Default Policy Safety
+
+If no rules match or the findings list is empty, the policy engine safely defaults to `PolicyAction.ALLOW` with an explicit diagnostic reason (`"No policy rules matched."` or `"No detections to evaluate."`).
+
+### Privacy-Preserving Explanations
+
+The resulting `PolicyDecision` reason provides clear audit explanations without leaking sensitive data:
+- Safe: `"Blocked because high-severity secret matched rule 'block_high_secrets'."`
+- Strictly forbidden: Emitting detected API keys, passwords, or raw prompt strings.
 
 ---
 

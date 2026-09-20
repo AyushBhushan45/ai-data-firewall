@@ -25,10 +25,15 @@ from aifirewall.models.detection import DetectionResult
 from aifirewall.models.event import PolicyDecision, SecurityEvent
 from aifirewall.models.request import NormalizedAIRequest, NormalizedMessage
 from aifirewall.models.response import NormalizedAIResponse
+from aifirewall.policy import (
+    PolicyConfig,
+    PolicyContext,
+    PolicyEngine,
+    PolicyRule,
+)
 from aifirewall.protocols import (
     AuditSink,
     ContentTransformer,
-    PolicyEngine,
     ProviderAdapter,
 )
 
@@ -61,9 +66,13 @@ __all__ = [
     "Detector",
     "DetectorContext",
     "SecretDetector",
+    # Policy engine, rules & configuration
+    "PolicyConfig",
+    "PolicyContext",
+    "PolicyEngine",
+    "PolicyRule",
     # Architectural protocols
     "AuditSink",
     "ContentTransformer",
-    "PolicyEngine",
     "ProviderAdapter",
 ]

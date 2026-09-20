@@ -7,11 +7,11 @@ An open-source, local-first security layer for AI applications.
 ## Project Status
 
 > [!NOTE]
-> **Current Status: Early Development (Pre-Alpha — Step 5 SecretDetector Implemented)**
+> **Current Status: Early Development (Pre-Alpha — Step 6 Policy Engine Implemented)**
 >
-> The project now contains the foundational domain models, detector interface, validation logic, and its first security inspection module: `SecretDetector`.
+> The project contains foundational domain models, detector interfaces, the first security inspection module (`SecretDetector`), and the internal declarative policy engine (`PolicyEngine`, `PolicyRule`, `PolicyConfig`, `PolicyContext`).
 >
-> However, policy evaluation rules, content redaction, the network proxy runtime, and provider adapters are **not yet implemented**. The firewall cannot yet inspect live network traffic or protect AI applications in production.
+> However, content redaction transformations, the network proxy runtime daemon, and provider adapters are **not yet implemented**. The policy engine is currently an internal library component. The firewall cannot yet inspect live network traffic or intercept AI requests in production.
 
 ---
 
@@ -142,8 +142,8 @@ Development is structured into incremental phases:
 
 - **Phase 0: Project Foundation** *(Complete)* — Packaging, repository scaffolding, code standards, smoke tests, CI.
 - **Phase 1: Technical Architecture & Design** *(Complete)* — System architecture, threat models, domain protocols, ADRs.
-- **Phase 2: Core Detection Engine** — Scanning protocols, high-confidence secret and credential detection, test fixtures.
-- **Phase 3: Policy Engine** — Declarative rule evaluation (allow, warn, redact, block) and conflict resolution.
+- **Phase 2: Core Detection Engine** *(In Progress — SecretDetector Implemented)* — Scanning protocols, high-confidence secret and credential detection, test fixtures.
+- **Phase 3: Policy Engine** *(Complete)* — Declarative rule evaluation (allow, warn, redact, block) and conflict resolution.
 - **Phase 4: Transformation Layer** — Safe string masking and redaction without payload corruption.
 - **Phase 5: Provider Normalization & Mock Provider** — OpenAI/Anthropic format normalizers and offline test harness.
 - **Phase 6: Local Proxy Daemon** — Minimal HTTP forwarding and reverse-proxy engine.

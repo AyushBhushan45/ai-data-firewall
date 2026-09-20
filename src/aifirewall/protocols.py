@@ -5,6 +5,7 @@ detectors, provider adapters, policy engines, content transformers, and audit si
 Implementations will be introduced incrementally in subsequent stages.
 """
 
+from collections.abc import Sequence
 from typing import Any, Protocol, runtime_checkable
 
 from aifirewall.detectors.base import Detector, DetectorContext
@@ -54,7 +55,8 @@ class PolicyEngine(Protocol):
 
     def evaluate(
         self,
-        detections: list[DetectionResult],
+        detections: Sequence[DetectionResult],
+        context: Any = None,
         request: NormalizedAIRequest | None = None,
     ) -> PolicyDecision:
         """Evaluate findings and return a deterministic policy decision."""

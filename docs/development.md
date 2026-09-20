@@ -83,16 +83,45 @@ To contribute a new credential pattern recognizer to [`SecretDetector`](../src/a
 3. Ensure that missing or proprietary fields are mapped gracefully into the `metadata` dictionary without throwing unexpected exceptions.
 4. Add unit tests verifying bidirectional schema translation.
 
-### How to Add a New Policy Rule
-1. Policy rules are declarative entries loaded by the `PolicyEngine`.
-2. A rule specifies:
-   - `name`: Human-readable identifier.
-   - `category`: Target detection category (e.g., `api_key`, `pii`).
-   - `severity`: Minimum severity threshold (`LOW`, `MEDIUM`, `HIGH`, `CRITICAL`).
-   - `min_confidence`: Minimum confidence threshold (`0.0` to `1.0`).
-   - `action`: Prescribed resolution (`ALLOW`, `WARN`, `REDACT`, `BLOCK`).
-3. Add configuration tests ensuring the rule resolves deterministically according to the precedence hierarchy:
-   $$\mathbf{BLOCK} > \mathbf{REDACT} > \mathbf{WARN} > \mathbf{ALLOW}$$
+### How to Add a Policy Rule (Contributor Guidance)
+
+Policy rules are declarative domain models evaluated by the `PolicyEngine`. In Step 6, rules are configured programmatically via typed models (`PolicyRule` and `PolicyConfig`):
+
+1. **Instantiate a `PolicyRule`**:
+   ```python
+   from aifirewall.core.types import DetectionCategory, PolicyAction, Severity
+   from aifirewall.policy import PolicyRule
+
+   rule = PolicyRule(
+       rule_id="block_critical_secrets",
+       action=PolicyAction.BLOCK,
+       description="Halt execution on confirmed critical secrets",
+       category=DetectionCategory.SECRET,
+       minimum_severity=Severity.CRITICAL,
+       minimum_confidence=0.90,
+       priority=100,  # Higher number = higher precedence
+   )
+   ```
+2. **Supported Filter Conditions** (evaluated with strict AND semantics):
+   - `category`: `DetectionCategory.SECRET`, `PII`, `PROMPT_INJECTION`, `OTHER`.
+   - `minimum_severity`: `INFO < LOW < MEDIUM < HIGH < CRITICAL`.
+   - `minimum_confidence`: Float in `[0.0, 1.0]` (inclusive).
+   - `detector_name`: Exact string matching detector ID (e.g. `"secret_detector"`).
+   - `source`: `ContentSource.USER`, `SYSTEM`, `ASSISTANT`, `TOOL_OUTPUT`, etc.
+   - `direction`: `ContentDirection.REQUEST` or `RESPONSE`.
+   - `enabled`: Set `False` to deactivate without deleting from configuration.
+3. **Assemble Configuration & Engine**:
+   ```python
+   from aifirewall.policy import PolicyConfig, PolicyEngine
+
+   config = PolicyConfig(rules=[rule], default_action=PolicyAction.ALLOW)
+   engine = PolicyEngine(rules=config)
+   decision = engine.evaluate(detections)
+   ```
+4. **Add Unit Tests**:
+   - Verify that positive matching triggers the expected action.
+   - Verify that boundary thresholds (severity, confidence) behave inclusively.
+   - Verify deterministic conflict resolution against lower-priority or conflicting rules.
 
 ---
 

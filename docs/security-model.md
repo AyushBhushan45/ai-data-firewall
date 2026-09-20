@@ -135,21 +135,29 @@ A validated score strictly bounded between `0.0` and `1.0` indicating statistica
 - `0.94 - 0.70`: Moderate certainty (e.g., generic Shannon entropy spike or standard email format).
 - `< 0.70`: Low certainty (e.g., heuristic prompt injection signal or single-word keyword match).
 
-### Policy Integration
-Security policies incorporate confidence thresholds to eliminate false positives:
-```yaml
-rules:
-  - name: block_confirmed_secrets
-    category: "secret"
-    severity: "critical"
-    min_confidence: 0.90
-    action: "block"
+### Policy Evaluation Security Model (Step 6)
 
-  - name: warn_suspected_injections
-    category: "prompt_injection"
-    min_confidence: 0.60
-    action: "warn"
-```
+The `PolicyEngine` enforces declarative rules over normalized findings while maintaining strict privacy and security invariants:
+
+1. **Strict Architectural Separation**:
+   $$\mathbf{DETECTION \ne POLICY \ne TRANSFORMATION}$$
+   The policy engine never inspects raw prompts or completions; it evaluates purely on normalized `DetectionResult` models.
+2. **Severity Thresholding**:
+   Explicit severity ranking:
+   $$\mathbf{INFO (0) < LOW (1) < MEDIUM (2) < HIGH (3) < CRITICAL (4)}$$
+   A rule specifying `minimum_severity=HIGH` matches `HIGH` and `CRITICAL`, but strictly excludes `MEDIUM`, `LOW`, and `INFO`. Enums are never compared alphabetically.
+3. **Confidence Thresholding**:
+   Confidence thresholds in `[0.0, 1.0]` use inclusive boundaries (`finding.confidence >= rule.minimum_confidence`). Out-of-bounds configuration values are rejected at validation time.
+4. **Rule Priorities & Deterministic Conflict Resolution**:
+   - Each rule carries a numeric `priority` (default: 100). Higher numbers take precedence.
+   - When conflicting rules share equal priority, action precedence resolves the conflict deterministically:
+     $$\mathbf{BLOCK > REDACT > WARN > ALLOW}$$
+   - Further ties are broken deterministically by `rule.rule_id` and `detection.detection_id`.
+   - Evaluation is invariant to finding input ordering.
+5. **Default ALLOW Posture**:
+   When no rules match or no detections are present, the firewall safely returns `PolicyAction.ALLOW` with a clear diagnostic explanation.
+6. **Privacy Guarantees in Decisions**:
+   `PolicyDecision` contains only the action, matched rule IDs, detection references, and safe diagnostic explanations (e.g. `"Blocked because high-severity secret matched rule 'block_secrets'"`). Raw credentials, unredacted prompts, and tokens are strictly excluded from reasons, `str()`, and `repr()`.
 
 ---
 
