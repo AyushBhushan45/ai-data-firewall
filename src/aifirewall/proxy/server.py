@@ -6,7 +6,7 @@ and sanitized response emission with strict local-first security defaults.
 
 import re
 import uuid
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from typing import Any
 
@@ -70,7 +70,7 @@ def create_proxy_app(
     )
 
     @asynccontextmanager
-    async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         await upstream.start()
         yield
         await upstream.close()
