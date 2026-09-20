@@ -53,7 +53,26 @@ When contributing a new security or privacy detector in future steps:
 6. **Document false-positive considerations**:
    - Document known edge cases, ambiguous patterns, and recommended confidence thresholds.
 
-*(Note: Concrete detectors are not implemented in Step 4. This guidance defines the standard for subsequent phases.)*
+### How to Add a New Secret Pattern to `SecretDetector`
+
+To contribute a new credential pattern recognizer to [`SecretDetector`](../src/aifirewall/detectors/secret.py):
+
+1. **Define the Pattern in `_compile_patterns()`**:
+   - Create a `SecretPattern` with a unique identifier (e.g., `name="my_service_token"`).
+   - Provide a precompiled regex with word boundaries `\b` and appropriate minimum length constraints.
+   - Set an appropriate `Severity` (`HIGH` for high-impact tokens, `MEDIUM` for identifiers).
+   - Set a deterministic, calibrated `confidence` (e.g. `0.95` for specific prefixes, `0.80` for generic matches).
+   - Assign a safe description (e.g. `"Possible MyService token detected."`).
+   - If custom span calculation or token validation is needed, provide an optional validator function.
+2. **Enforce Placeholder & False-Positive Guardrails**:
+   - Verify that standard placeholders (`YOUR_API_KEY`, `<TOKEN>`, `dummy-token`, etc.) are ignored.
+   - Avoid overly greedy regexes that match arbitrary alphanumeric strings.
+3. **Never Store or Expose the Secret Value**:
+   - Ensure the validator and pattern metadata only store pattern names and non-sensitive attributes.
+4. **Add Comprehensive Unit Tests**:
+   - Add test cases in [`tests/test_secret_detector.py`](../tests/test_secret_detector.py).
+   - Use strictly synthetic, fake placeholders.
+   - Verify correct character start/end coordinates against `content[start:end]`.
 
 ### How to Add a New Provider Adapter
 1. Create a module under `src/aifirewall/providers/` (e.g., `anthropic_adapter.py`).

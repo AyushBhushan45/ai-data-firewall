@@ -19,6 +19,7 @@ from aifirewall.detectors.base import (
     Detector,
     DetectorContext,
 )
+from aifirewall.detectors.secret import SecretDetector
 from aifirewall.models.content import ContentLocation
 from aifirewall.models.detection import DetectionResult
 from aifirewall.models.event import PolicyDecision, SecurityEvent
@@ -56,9 +57,10 @@ __all__ = [
     "NormalizedMessage",
     "PolicyDecision",
     "SecurityEvent",
-    # Detector protocol & context
+    # Detector protocol, context & implementations
     "Detector",
     "DetectorContext",
+    "SecretDetector",
     # Architectural protocols
     "AuditSink",
     "ContentTransformer",

@@ -164,6 +164,7 @@ A core guarantee of the AI Data Firewall architecture is:
 1. **Zero Raw Value Storage in Detections**:
    - `DetectionResult` objects capture category, severity, confidence, offset coordinates (`ContentLocation`), and safe descriptions.
    - They strictly forbid fields storing matched tokens (e.g., no `raw_secret` or `detected_value`).
+   - Why raw secrets are excluded: Storing live API keys in detection objects or diagnostic dumps creates secondary exfiltration risks if logs or traces are leaked.
 2. **Safe Descriptions**:
    - Finding descriptions must be generic, non-sensitive summaries (e.g., *"Possible API credential detected"*, never *"Detected secret: sk-123456"*).
 3. **Privacy-Preserving Audit Events (`SecurityEvent`)**:
@@ -171,6 +172,31 @@ A core guarantee of the AI Data Firewall architecture is:
    - Raw user prompts, full model completions, and secret values are never persisted to disk or emitted in event streams.
 4. **Safe Error Handling**:
    - `AIFirewallError` subclasses (such as `ValidationError` and `DetectorError`) sanitize error messages and ensure that sensitive inspection buffers are never formatted into exception strings or stack trace summaries.
+
+---
+
+## 7. Pattern-Based Secret Detection & Limitations (Step 5)
+
+[`SecretDetector`](../src/aifirewall/detectors/secret.py) performs conservative, pattern-based recognition of common credentials.
+
+### Recognizers
+- Known provider formats (OpenAI `sk-` / `sk-proj-`, GitHub `ghp_`, Google `AIza`, AWS access key IDs, Slack tokens).
+- Structural authentication tokens (JWT 3-segment format, Authorization Bearer tokens).
+- Explicit key-value assignments (`api_key=`, `client_secret=`, `password=`, `private_key=`).
+
+### Conservative Matching & False-Positive Mitigations
+- **Structural Context Required**: Unassigned keywords in normal sentences (e.g., *"The API key is required"*) do NOT trigger findings.
+- **Placeholder Suppression**: Standard developer dummy placeholders (e.g. `YOUR_API_KEY`, `<TOKEN>`, `REPLACE_ME`, `example-token`, `dummy-token`) are strictly ignored.
+- **Span Deduplication**: When an explicit assignment contains a recognizable provider token, the detector deduplicates the span to avoid redundant findings.
+
+### Known Limitations
+- **Not a Universal Secret Detector**: Cannot detect arbitrary proprietary or custom secret formats lacking structural identifiers or assignment context.
+- **Syntactic Only**: The detector identifies patterns; it does NOT verify whether a credential is active, valid, or revoked.
+- **Evasion Possibility**: Heavily obfuscated secrets (e.g. base64-encoded, fragmented across tokens, or rot13-scrambled) will evade simple pattern scans unless canonicalized in earlier pipeline stages.
+
+---
+
+## 8. Assumptions & Limitations
 
 - **No Absolute Guarantees**: No automated scanner can detect 100% of adversarial prompt injections or obfuscated secrets. Attackers continually discover novel linguistic evasion techniques.
 - **Defense in Depth**: AI Data Firewall must be deployed as one layer within a multi-tiered security architecture alongside IAM least-privilege policies, sandboxed tool execution environments, and application-level authorization.

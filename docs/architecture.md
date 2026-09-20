@@ -1,14 +1,13 @@
 # AI Data Firewall: Complete System Architecture & Technical Design
 
 > [!IMPORTANT]
-> **Foundation & Domain Layer Milestone (Step 4 Implemented)**
+> **First Security Detector Milestone (Step 5 Implemented)**
 >
-> Step 4 establishes the stable, typed internal domain language for AI Data Firewall:
-> - **Core Types & Errors**: Direction, sources, severity, confidence, categories, policy actions, event types, and error hierarchy (`src/aifirewall/core/`).
-> - **Normalized Domain Models**: Immutability, coordinate tracking, validation, safe string representations (`src/aifirewall/models/`).
-> - **Detector Interface & Context**: Pure observational scanner protocol and execution context (`src/aifirewall/detectors/base.py`).
+> Step 5 implements the first concrete security inspection module:
+> - **`SecretDetector`** ([`src/aifirewall/detectors/secret.py`](../src/aifirewall/detectors/secret.py)): Pattern-based detection of common API keys, personal access tokens, and explicit credential assignments.
+> - **Core Guarantees**: Deterministic execution, accurate character coordinates, false-positive placeholder suppression, zero raw secret retention, and strict decoupling from enforcement policies (`DETECTION ≠ POLICY`).
 >
-> **Explicit Boundary:** Concrete security detectors (secret/PII/injection detection), proxy runtimes, policy rules engines, transformation algorithms, and provider adapters are **PLANNED FOR FUTURE STEPS**.
+> **Explicit Boundary:** Policy evaluation rules, redaction transformations, HTTP proxy daemons, PII detectors, prompt-injection detectors, and provider adapters remain **PLANNED FOR FUTURE STEPS**.
 
 ---
 
@@ -121,7 +120,8 @@ src/aifirewall/
 | `core/` | Primitives: Enums (`ContentDirection`, `ContentSource`, `Severity`, `PolicyAction`, `EventType`) and safe exception hierarchy (`AIFirewallError`, `ValidationError`, `DetectorError`). | **Implemented in Step 4** |
 | `models/` | Frozen canonical dataclasses: `ContentLocation`, `DetectionResult`, `NormalizedMessage`, `NormalizedAIRequest`, `NormalizedAIResponse`, `PolicyDecision`, `SecurityEvent`. | **Implemented in Step 4** |
 | `detectors/base.py`| Structural subtyping contract: `Detector` protocol and minimal `DetectorContext`. | **Implemented in Step 4** |
-| `detectors/` (impls)| Concrete scanners for secrets, PII, prompt injections. | *Planned for Future Steps* |
+| `detectors/secret.py`| Pattern-based detection of common API keys, personal access tokens, and credential assignments (`SecretDetector`). | **Implemented in Step 5** |
+| `detectors/` (others)| Scanners for PII, prompt injections, and future detectors. | *Planned for Future Steps* |
 | `policies/` | Declarative policy evaluation and deterministic conflict resolution. | *Planned for Future Steps* |
 | `transform/` | Surgical text masking, synthetic replacement, and span merging. | *Planned for Future Steps* |
 | `providers/` | External provider format mappings and transport adapters. | *Planned for Future Steps* |
@@ -292,17 +292,21 @@ Detectors receive minimal contextual information via `DetectorContext`:
 - `metadata`: Safe arbitrary metadata.
 - **Privacy Boundary**: Context strictly prohibits raw API keys, credentials, or user identity tokens.
 
-### Core Detector Principles
-1. **Strict Separation of Observation and Enforcement (`DETECTION ≠ POLICY ≠ TRANSFORMATION`)**: Detectors *only answer "What did I find?"*; they never make enforcement decisions (`ALLOW`, `BLOCK`). Enforcement belongs solely to the `PolicyEngine`.
-2. **Deterministic Execution**: Given identical content and context, a detector must always yield identical findings.
-3. **Failure Isolation**: An unhandled exception inside any detector must raise or be wrapped in `DetectorError` (`src/aifirewall/core/errors.py`), trapped by the pipeline orchestrator, and handled without leaking sensitive content in error traces.
-4. **Execution Strategy (Planned for Step 5+)**:
-   - Detectors run sequentially and deterministically in configured order.
-   - Fast deterministic regex/entropy scans execute before heavier structural heuristics.
-5. **Async & Streaming Compatibility**:
-   - While `detect()` is a clean synchronous call, its design allows non-blocking execution via worker threadpools without state mutation.
-   - Character offsets and block indices support sliding-window reassembly for future streaming token chunks.
-   - `ContentLocation.block_index` accommodates multimodal image and document blocks in future stages.
+### Concrete Implementation: `SecretDetector` (Implemented in Step 5)
+[`SecretDetector`](../src/aifirewall/detectors/secret.py) is the first operational security detector. It identifies common credential and access token patterns across 8 recognizer families:
+1. **OpenAI API keys**: Matches `sk-[a-zA-Z0-9]{20,}` and `sk-proj-[a-zA-Z0-9_-]{20,}` (`Severity.HIGH`, `confidence=0.95`).
+2. **GitHub personal access tokens**: Matches `ghp_`, `gho_`, `ghu_`, `ghs_`, `ghr_` tokens (`Severity.HIGH`, `confidence=0.95`).
+3. **Google API keys**: Matches `AIza[0-9A-Za-z-_]{33,40}` (`Severity.HIGH`, `confidence=0.95`).
+4. **AWS access key IDs**: Matches `AKIA` and `ASIA` prefixes (`Severity.HIGH`, `confidence=0.90`).
+5. **Slack-style tokens**: Matches `xoxb-`, `xoxp-`, `xoxa-`, `xoxr-` (`Severity.HIGH`, `confidence=0.95`).
+6. **JSON Web Tokens (JWT)**: Matches 3-part Base64URL headers/payloads without decoding payload content (`Severity.HIGH`, `confidence=0.85`).
+7. **Bearer authentication tokens**: Matches `Authorization: Bearer <token>` and standalone Bearer tokens without triggering on ordinary prose (`Severity.HIGH`, `confidence=0.85`).
+8. **Explicit credential assignments**: Matches assignments such as `api_key=...`, `client_secret=...`, `password=...`, `private_key=...` (`Severity.HIGH`, `confidence=0.80`).
+
+**False-Positive Mitigation**:
+- Filters obvious placeholders (e.g. `YOUR_API_KEY`, `<TOKEN>`, `REPLACE_ME`, `CHANGEME`, `dummy-token`).
+- Rejects empty values and conversational prose mentioning security terminology without assignment syntax.
+- Deduplicates identical spans between generic assignments and specific token patterns.
 
 ---
 

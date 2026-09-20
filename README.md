@@ -7,11 +7,11 @@ An open-source, local-first security layer for AI applications.
 ## Project Status
 
 > [!NOTE]
-> **Current Status: Early Development (Pre-Alpha — Step 4 Domain Layer Established)**
+> **Current Status: Early Development (Pre-Alpha — Step 5 SecretDetector Implemented)**
 >
-> The project now contains the foundational domain models, detector interface, validation logic, and error boundaries. However, concrete security detectors (secrets, PII, prompt injection), the proxy runtime, and provider integrations are **not yet implemented**.
+> The project now contains the foundational domain models, detector interface, validation logic, and its first security inspection module: `SecretDetector`.
 >
-> The firewall cannot yet inspect network traffic or protect AI applications in production.
+> However, policy evaluation rules, content redaction, the network proxy runtime, and provider adapters are **not yet implemented**. The firewall cannot yet inspect live network traffic or protect AI applications in production.
 
 ---
 
