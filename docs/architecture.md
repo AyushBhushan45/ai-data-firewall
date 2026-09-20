@@ -1,11 +1,14 @@
 # AI Data Firewall: Complete System Architecture & Technical Design
 
 > [!IMPORTANT]
-> **Design-First Architectural Milestone (Step 3)**
+> **Foundation & Domain Layer Milestone (Step 4 Implemented)**
 >
-> This document specifies the comprehensive technical architecture, domain models, protocols, lifecycle pipelines, and engineering boundaries for AI Data Firewall.
+> Step 4 establishes the stable, typed internal domain language for AI Data Firewall:
+> - **Core Types & Errors**: Direction, sources, severity, confidence, categories, policy actions, event types, and error hierarchy (`src/aifirewall/core/`).
+> - **Normalized Domain Models**: Immutability, coordinate tracking, validation, safe string representations (`src/aifirewall/models/`).
+> - **Detector Interface & Context**: Pure observational scanner protocol and execution context (`src/aifirewall/detectors/base.py`).
 >
-> **In accordance with Step 3 constraints, core security detectors, proxy runtimes, and provider integrations are NOT yet implemented.** This specification serves as the blueprint for incremental implementation in subsequent phases.
+> **Explicit Boundary:** Concrete security detectors (secret/PII/injection detection), proxy runtimes, policy rules engines, transformation algorithms, and provider adapters are **PLANNED FOR FUTURE STEPS**.
 
 ---
 
@@ -93,40 +96,36 @@ AI Data Firewall operates as a local-first, privacy-preserving security and insp
 
 ## 2. Core Modules & Responsibilities
 
-The codebase is structured to preserve modularity, deterministic execution, and testability:
+The codebase is organized into clean, single-responsibility modules:
 
 ```text
 src/aifirewall/
-├── core/             # Pipeline orchestrator, lifecycle management, and request context
-├── models.py         # Foundational domain dataclasses and enums (Normalized models, Results)
-├── protocols.py      # Structural subtyping protocols (Detector, ProviderAdapter, PolicyEngine)
-├── detectors/        # Observational scanner modules (secrets, PII, prompt injection)
-├── policies/         # Deterministic rule evaluation, precedence logic, decision types
-├── transform/        # Safe content transformation (masking, redaction, replacement)
-├── normalization/    # Provider-specific payload mapping to/from internal normalized models
-├── providers/        # Provider adapters (OpenAI, Anthropic, Gemini, Ollama, MockProvider)
-├── proxy/            # Local HTTP/reverse-proxy server and routing middleware
-├── logging/          # Privacy-preserving audit event recording and serializers
-├── config/           # Declarative configuration loader, schema validation, and defaults
-└── cli/              # Command-line interface entry points (start, scan, test, config)
+├── core/             # Primitives: types.py (enums), errors.py (exception hierarchy)
+├── models/           # Domain models: content.py, request.py, response.py, detection.py, event.py
+├── detectors/        # Observational protocols & contexts: base.py (future scanners live here)
+├── protocols.py      # Structural subtyping protocols (ProviderAdapter, PolicyEngine, etc.)
+├── policies/         # [Future] Rule evaluation and policy decision engine
+├── transform/        # [Future] Text transformation and redaction engine
+├── normalization/    # [Future] Provider-specific payload mapping
+├── providers/        # [Future] Upstream client connections and mock adapters
+├── proxy/            # [Future] HTTP reverse-proxy server daemon
+├── logging/          # [Future] Structured audit log sinks (JSONL, stderr)
+├── config/           # [Future] Declarative YAML configuration schemas and validation
+└── cli/              # [Future] Command-line entry points
 ```
 
 ### Module Ownership Matrix
 
-| Module | Primary Responsibility | Explicit Non-Responsibilities |
+| Module | Primary Responsibility | Status |
 | :--- | :--- | :--- |
-| `core/` | Request/response lifecycle orchestration, context tracking, error handling. | Does not execute pattern matching or evaluate policy rules. |
-| `models.py` | Canonical typed dataclasses and enums for requests, responses, detections, and events. | Contains zero business logic, I/O, or parsing code. |
-| `protocols.py` | Standard interface contracts ensuring modular subtyping across subsystems. | Contains zero concrete implementations. |
-| `detectors/` | Observational inspection of normalized text spans; produces `DetectionResult[]`. | Never decides enforcement actions (`ALLOW`, `BLOCK`). |
-| `policies/` | Evaluates `DetectionResult[]` against declarative rules to decide `PolicyAction`. | Does not scan raw strings or perform regex matching. |
-| `transform/` | Applies surgical text transformations (e.g., masking) based on policy decisions. | Does not decide which rules apply or detect vulnerabilities. |
-| `normalization/`| Maps external JSON structures into `NormalizedAIRequest`/`Response`. | Never alters prompt semantics or executes security checks. |
-| `providers/` | Manages upstream connection protocols, HTTP headers, and client interactions. | Does not inspect payloads for security violations. |
-| `proxy/` | Ingests incoming network traffic, terminates HTTP, and forwards sanitized streams. | Independent of security detection algorithms. |
-| `logging/` | Records structured, privacy-safe `SecurityEvent` audit entries. | Never persists raw prompts, credentials, or full completions. |
-| `config/` | Loads, validates, and freezes YAML/TOML configuration at startup. | Does not dynamically mutate configuration during requests. |
-| `cli/` | Exposes administrative commands and standalone scanner utilities. | Does not contain embedded detection or proxy logic. |
+| `core/` | Primitives: Enums (`ContentDirection`, `ContentSource`, `Severity`, `PolicyAction`, `EventType`) and safe exception hierarchy (`AIFirewallError`, `ValidationError`, `DetectorError`). | **Implemented in Step 4** |
+| `models/` | Frozen canonical dataclasses: `ContentLocation`, `DetectionResult`, `NormalizedMessage`, `NormalizedAIRequest`, `NormalizedAIResponse`, `PolicyDecision`, `SecurityEvent`. | **Implemented in Step 4** |
+| `detectors/base.py`| Structural subtyping contract: `Detector` protocol and minimal `DetectorContext`. | **Implemented in Step 4** |
+| `detectors/` (impls)| Concrete scanners for secrets, PII, prompt injections. | *Planned for Future Steps* |
+| `policies/` | Declarative policy evaluation and deterministic conflict resolution. | *Planned for Future Steps* |
+| `transform/` | Surgical text masking, synthetic replacement, and span merging. | *Planned for Future Steps* |
+| `providers/` | External provider format mappings and transport adapters. | *Planned for Future Steps* |
+| `proxy/` | Local HTTP reverse-proxy runtime daemon. | *Planned for Future Steps* |
 
 ---
 
@@ -222,52 +221,88 @@ Completions generated by upstream AI models undergo post-flight inspection befor
 
 ---
 
-## 5. Domain Models & Protocols
+## 5. Domain Models & Protocols (Implemented in Step 4)
+
+Rather than forcing detectors and policy engines to parse varied vendor formats, the system operates on immutable, validated internal dataclasses defined in [`src/aifirewall/models/`](../src/aifirewall/models/):
 
 ### Normalized Representations
-Rather than forcing detectors and policy engines to parse varied vendor formats, the system operates on immutable internal dataclasses defined in [`src/aifirewall/models.py`](../src/aifirewall/models.py):
-
-- **`NormalizedAIRequest`**: Contains `request_id`, `model`, a list of `NormalizedMessage` objects, model parameters (e.g., temperature), and request metadata.
-- **`NormalizedMessage`**: Contains `role` (`system`, `user`, `assistant`, `tool`), `content` (normalized text), and `ContentSource` classification.
-- **`NormalizedAIResponse`**: Contains `request_id`, `model`, completion `content`, `finish_reason`, and provider metadata.
+- **`NormalizedAIRequest`**: Canonical representation containing validated `request_id`, target `model`, a list of `NormalizedMessage` objects, parameters, and metadata.
+- **`NormalizedMessage`**: Represents a conversational turn (`role`, normalized `content`, `source`, `metadata`). Validates non-empty role.
+- **`NormalizedAIResponse`**: Normalized model completion containing `request_id`, `model`, `content`, `finish_reason`, parameters, and metadata.
 
 ### Content Location Tracking
 To pinpoint where findings occur without re-parsing raw payloads, findings include a `ContentLocation`:
-- `source`: `ContentSource` enum (`USER_INPUT`, `SYSTEM_INSTRUCTION`, `RETRIEVED_DOCUMENT`, `TOOL_OUTPUT`, `MODEL_OUTPUT`).
-- `message_index`: Index of the message in the conversational history array.
-- `char_start` & `char_end`: Zero-indexed character slice boundaries within the text block.
-- `field_path`: Dot-notation path to the inspected attribute (e.g., `messages[2].content`).
+- `source`: `ContentSource` enum (`SYSTEM`, `USER`, `ASSISTANT`, `TOOL_INPUT`, `TOOL_OUTPUT`, `RETRIEVED_CONTENT`, `UNKNOWN`).
+- `message_index`: Optional zero-based index of the message in the conversational history array.
+- `block_index`: Optional zero-based index of a content block within structured or multimodal messages.
+- `char_start` & `char_end`: Zero-indexed character slice boundaries within the text block. Validates non-negative values and `char_start <= char_end`.
+- `field_path`: Dot-notation path to the inspected attribute (e.g. `messages[2].content`).
 
 ### Finding & Decision Representations
-- **`DetectionResult`**: Captures `detector_name`, `category`, `severity` (`LOW`, `MEDIUM`, `HIGH`, `CRITICAL`), `confidence` (float between 0.0 and 1.0), `location`, `description`, and `recommended_action`. **Never stores the raw sensitive value.**
+- **`DetectionResult`**: Captures an observational finding produced by a detector:
+  - `detection_id`: Unique identifier for the finding.
+  - `detector_name`: Identifier of the detector module.
+  - `category`: Classification category (`SECRET`, `PII`, `PROMPT_INJECTION`, `OTHER`).
+  - `severity`: Observational severity level (`INFO`, `LOW`, `MEDIUM`, `HIGH`, `CRITICAL`).
+  - `confidence`: Validated float strictly within `[0.0, 1.0]`.
+  - `location`: Frozen `ContentLocation` coordinates.
+  - `description`: Non-empty safe diagnostic explanation.
+  - `metadata`: Optional safe metadata dictionary.
+  - **Zero Raw Secret Storage**: The model stores NO plaintext secrets or raw tokens.
+  - **No Policy Decisions**: In adherence to `DETECTION ≠ POLICY`, detectors do NOT set policy actions on findings.
 - **`PolicyDecision`**: Encapsulates `action` (`ALLOW`, `WARN`, `REDACT`, `BLOCK`), `reason`, `matched_rules`, and referenced `detections`.
-- **`SecurityEvent`**: Standardized audit log entry containing `event_id`, `timestamp`, `request_id`, `direction`, `action_taken`, `safe_explanation`, and sanitized detection summaries.
+- **`SecurityEvent`**: Standardized audit log entry containing `event_id`, `timestamp`, `request_id`, `direction`, `action_taken`, `safe_explanation`, `event_type`, and sanitized detection summaries.
 
 ---
 
-## 6. Detector Architecture
+## 6. Detector Architecture & Context (Implemented in Step 4)
 
-Detectors are self-contained modules implementing the `Detector` protocol defined in [`src/aifirewall/protocols.py`](../src/aifirewall/protocols.py):
+Detectors are self-contained observational scanning modules implementing the `Detector` protocol defined in [`src/aifirewall/detectors/base.py`](../src/aifirewall/detectors/base.py):
 
 ```python
+@runtime_checkable
 class Detector(Protocol):
     @property
     def name(self) -> str: ...
+
     @property
-    def category(self) -> str: ...
+    def version(self) -> str: ...
+
+    @property
+    def description(self) -> str: ...
+
+    @property
+    def supported_categories(self) -> tuple[DetectionCategory | str, ...]: ...
+
     def detect(
-        self, content: str, location: ContentLocation
+        self,
+        content: str,
+        context: DetectorContext,
     ) -> list[DetectionResult]: ...
 ```
 
+### Detector Context (`DetectorContext`)
+Detectors receive minimal contextual information via `DetectorContext`:
+- `request_id`: Correlation identifier for the transaction.
+- `direction`: Traffic flow direction (`REQUEST` or `RESPONSE`).
+- `source`: Content boundary provenance (`USER`, `SYSTEM`, `ASSISTANT`, etc.).
+- `model`: Optional target model name (e.g., `gpt-4o`).
+- `provider`: Optional upstream provider identifier (e.g., `openai`).
+- `location`: Optional parent content location coordinates.
+- `metadata`: Safe arbitrary metadata.
+- **Privacy Boundary**: Context strictly prohibits raw API keys, credentials, or user identity tokens.
+
 ### Core Detector Principles
-1. **Strict Separation of Observation and Enforcement**: Detectors *only identify conditions*; they never make enforcement decisions. Enforcement belongs solely to the `PolicyEngine`.
-2. **Deterministic Execution**: Given the same input string and context, a detector must always yield the identical findings.
-3. **Failure Isolation**: An unhandled exception inside any individual detector must be trapped by the pipeline orchestrator, logged as an internal diagnostic event, and handled according to the fail-safe policy without crashing the firewall process.
-4. **Execution Strategy**:
-   - For Phase 1, detectors run **sequentially and deterministically** in a configured order (e.g., High-Confidence Secrets -> PII -> Heuristic Prompt Injection).
-   - Fast deterministic regex scans run before heavier linguistic or structural heuristics.
-   - All enabled detectors run across all extracted content blocks to ensure complete audit coverage.
+1. **Strict Separation of Observation and Enforcement (`DETECTION ≠ POLICY ≠ TRANSFORMATION`)**: Detectors *only answer "What did I find?"*; they never make enforcement decisions (`ALLOW`, `BLOCK`). Enforcement belongs solely to the `PolicyEngine`.
+2. **Deterministic Execution**: Given identical content and context, a detector must always yield identical findings.
+3. **Failure Isolation**: An unhandled exception inside any detector must raise or be wrapped in `DetectorError` (`src/aifirewall/core/errors.py`), trapped by the pipeline orchestrator, and handled without leaking sensitive content in error traces.
+4. **Execution Strategy (Planned for Step 5+)**:
+   - Detectors run sequentially and deterministically in configured order.
+   - Fast deterministic regex/entropy scans execute before heavier structural heuristics.
+5. **Async & Streaming Compatibility**:
+   - While `detect()` is a clean synchronous call, its design allows non-blocking execution via worker threadpools without state mutation.
+   - Character offsets and block indices support sliding-window reassembly for future streaming token chunks.
+   - `ContentLocation.block_index` accommodates multimodal image and document blocks in future stages.
 
 ---
 

@@ -25,16 +25,35 @@ Because AI Data Firewall is a security tool designed to handle sensitive traffic
 
 The architecture is designed to be extensible without modifying core pipeline orchestration.
 
-### How to Add a New Detector
-1. Create a new module under `src/aifirewall/detectors/` (e.g., `jwt_detector.py`).
-2. Implement the `Detector` protocol defined in [`src/aifirewall/protocols.py`](../src/aifirewall/protocols.py):
-   - Expose `@property def name(self) -> str`
-   - Expose `@property def category(self) -> str`
-   - Implement `def detect(self, content: str, location: ContentLocation) -> list[DetectionResult]`
-3. Ensure findings produce valid `DetectionResult` objects with `char_start` and `char_end` spans relative to the input text.
-4. **Do NOT store the raw detected value** in the result.
-5. Add unit tests under `tests/detectors/` covering clean inputs, positive matches, and boundary cases.
-6. Register the detector in the central detector registry.
+### How to Add a New Detector (Contributor Guidance)
+
+When contributing a new security or privacy detector in future steps:
+
+1. **Implement the `Detector` protocol** defined in [`src/aifirewall/detectors/base.py`](../src/aifirewall/detectors/base.py):
+   - Expose `@property def name(self) -> str` (e.g. `"secret_pattern_detector"`)
+   - Expose `@property def version(self) -> str` (e.g. `"0.1.0"`)
+   - Expose `@property def description(self) -> str` (safe human-readable purpose)
+   - Expose `@property def supported_categories(self) -> tuple[DetectionCategory | str, ...]`
+   - Implement `def detect(self, content: str, context: DetectorContext) -> list[DetectionResult]`
+2. **Return `DetectionResult` objects**:
+   - Provide a unique `detection_id` (e.g., UUID or structured ID).
+   - Set calibrated `confidence` (float between `0.0` and `1.0`).
+   - Assign appropriate `severity` (`INFO`, `LOW`, `MEDIUM`, `HIGH`, `CRITICAL`).
+   - Attach a validated `ContentLocation` with character offsets (`char_start`, `char_end`).
+   - Provide a **safe description** (e.g., `"Possible credential pattern detected"`).
+3. **Avoid policy decisions**:
+   - Adhere strictly to **`DETECTION ≠ POLICY ≠ TRANSFORMATION`**.
+   - A detector only answers *"What did I find?"*. Never attempt to dictate enforcement actions (such as `BLOCK` or `REDACT`) within the detector.
+4. **Avoid storing or logging raw sensitive content**:
+   - Never place plaintext passwords, credentials, or full user prompts into `DetectionResult`, `metadata`, or log statements.
+5. **Include unit tests**:
+   - Test against clean, benign text (confirm it returns `[]`).
+   - Test against positive trigger text using synthetic, fake placeholders (confirm valid `DetectionResult`).
+   - Test boundary conditions (empty strings, unicode strings, long text spans).
+6. **Document false-positive considerations**:
+   - Document known edge cases, ambiguous patterns, and recommended confidence thresholds.
+
+*(Note: Concrete detectors are not implemented in Step 4. This guidance defines the standard for subsequent phases.)*
 
 ### How to Add a New Provider Adapter
 1. Create a module under `src/aifirewall/providers/` (e.g., `anthropic_adapter.py`).

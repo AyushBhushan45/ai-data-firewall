@@ -7,11 +7,11 @@ An open-source, local-first security layer for AI applications.
 ## Project Status
 
 > [!NOTE]
-> **Current Status: Early Development (Pre-Alpha - Step 3 Architecture Designed)**
+> **Current Status: Early Development (Pre-Alpha — Step 4 Domain Layer Established)**
 >
-> AI Data Firewall is in its foundational stage. The technical architecture, threat model, domain types, and protocols have been established, but the actual security detectors, proxy daemon, and provider integrations are **not yet implemented**.
+> The project now contains the foundational domain models, detector interface, validation logic, and error boundaries. However, concrete security detectors (secrets, PII, prompt injection), the proxy runtime, and provider integrations are **not yet implemented**.
 >
-> This project is **not** currently suitable for production use or as an active security perimeter.
+> The firewall cannot yet inspect network traffic or protect AI applications in production.
 
 ---
 

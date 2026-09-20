@@ -7,37 +7,14 @@ Implementations will be introduced incrementally in subsequent stages.
 
 from typing import Any, Protocol, runtime_checkable
 
+from aifirewall.detectors.base import Detector, DetectorContext
 from aifirewall.models import (
-    ContentLocation,
     DetectionResult,
     NormalizedAIRequest,
     NormalizedAIResponse,
     PolicyDecision,
     SecurityEvent,
 )
-
-
-@runtime_checkable
-class Detector(Protocol):
-    """Protocol for security, privacy, and safety inspection modules.
-
-    Detectors are strictly observational: they identify conditions and return
-    findings (DetectionResult). They do NOT decide enforcement actions.
-    """
-
-    @property
-    def name(self) -> str:
-        """Unique identifier of the detector."""
-        ...
-
-    @property
-    def category(self) -> str:
-        """Category of findings produced (e.g., 'secret', 'pii')."""
-        ...
-
-    def detect(self, content: str, location: ContentLocation) -> list[DetectionResult]:
-        """Inspect the given content segment and return zero or more findings."""
-        ...
 
 
 @runtime_checkable
@@ -103,3 +80,13 @@ class AuditSink(Protocol):
     def record(self, event: SecurityEvent) -> None:
         """Record an audit event without blocking critical request execution."""
         ...
+
+
+__all__ = [
+    "Detector",
+    "DetectorContext",
+    "ProviderAdapter",
+    "PolicyEngine",
+    "ContentTransformer",
+    "AuditSink",
+]
