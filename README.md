@@ -7,11 +7,11 @@ An open-source, local-first security layer for AI applications.
 ## Project Status
 
 > [!NOTE]
-> **Current Status: Early Development (Pre-Alpha — Step 7 Content Transformation / Redaction Engine Implemented)**
+> **Current Status: Early Development (Pre-Alpha — Step 8 Local Reverse Proxy + Security Pipeline Implemented)**
 >
-> The project contains foundational domain models, detector interfaces, the first security inspection module (`SecretDetector`), the internal declarative policy engine (`PolicyEngine`, `PolicyRule`, `PolicyConfig`, `PolicyContext`), and the deterministic content transformation layer (`RedactionEngine`, `RedactionResult`).
+> The project contains foundational domain models, detector interfaces, `SecretDetector`, the declarative policy engine (`PolicyEngine`), the content transformation layer (`RedactionEngine`), and the local HTTP reverse proxy (`FirewallProxy`, `SecurityPipeline`, `ProxyConfig`).
 >
-> However, the network proxy runtime daemon and provider adapters are **not yet implemented**. The engine is currently an internal library component. The firewall cannot yet inspect live network traffic or intercept AI requests in production.
+> **Honest Pre-Alpha Boundaries**: The proxy currently provides provider-agnostic reverse-proxying with generic JSON and text inspection. Provider-specific normalization (OpenAI, Anthropic, Gemini) belongs to Step 9. Streaming SSE tokens (`text/event-stream`), binary media inspection, and hosted cloud deployments are **not yet implemented**. Do not use in production internet-facing environments.
 
 ---
 

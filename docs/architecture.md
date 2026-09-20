@@ -540,3 +540,41 @@ To enable zero-cost, offline development and automated CI testing without extern
   - `echo_pii`: Emits simulated dummy PII to test response redaction.
   - `error_500`: Simulates upstream service failures to verify graceful error handling.
   - `malformed`: Emits invalid JSON to test response parser resilience.
+
+---
+
+## 15. Local HTTP Reverse Proxy & Security Pipeline (Step 8)
+
+The Step 8 implementation introduces the generic, provider-agnostic local HTTP reverse proxy and security pipeline:
+
+```
+AI APPLICATION ──► [HTTP Ingress] ──► [PayloadExtractor] ──► [DetectorRegistry] ──► [PolicyEngine]
+                                                                                           │
+    ┌───────────────────────────────────◄──────────────────────────────────────────────────┘
+    │
+    ├─► [BLOCK]  ──► Returns HTTP 403 (firewall_request_blocked, Upstream NEVER contacted)
+    ├─► [REDACT] ──► RedactionEngine transforms sensitive spans ──┐
+    └─► [ALLOW/WARN] ─────────────────────────────────────────────┤
+                                                                  ▼
+UPSTREAM AI API ◄── [UpstreamClient (Fixed Target)] ◄── [Reconstructed Request]
+     │
+     ▼ (Upstream Response)
+[PayloadExtractor] ──► [DetectorRegistry] ──► [PolicyEngine]
+                                                    │
+    ┌───────────────────────────────────────────────┘
+    │
+    ├─► [BLOCK]  ──► Returns HTTP 502 (firewall_response_blocked, Upstream body dropped)
+    ├─► [REDACT] ──► RedactionEngine transforms sensitive spans ──┐
+    └─► [ALLOW/WARN] ─────────────────────────────────────────────┤
+                                                                  ▼
+AI APPLICATION ◄─────────────────────────────────────── [Sanitized Response]
+```
+
+### Architectural Guarantees:
+- **Localhost-Only Default Binding**: The proxy binds strictly to `127.0.0.1:8080` by default to prevent LAN exposure.
+- **Fixed Upstream Target**: Upstream target host is configured at startup (`ProxyConfig.upstream_url`). Client-controlled headers (e.g. `X-Target-URL`, `X-Upstream-Override`) and query parameters cannot redirect traffic (Strict anti-SSRF / anti-open-proxy).
+- **Generic Semantic Traversal**: JSON payloads are recursively inspected at string value nodes. All non-string fields (ints, floats, bools, nulls, array order, object keys) are 100% preserved. Reconstructed JSON is guaranteed valid.
+- **Hop-by-Hop Header Stripping**: Transport-specific headers (`Connection`, `Upgrade`, `Keep-Alive`, etc.) are stripped.
+- **Zero Raw Secret Disclosure**: Raw secrets, credentials, and Authorization tokens are never logged, never included in error payloads, and never leaked in exceptions.
+- **Explicit Step 8 Boundaries**: Provider-specific adapters (OpenAI/Anthropic/Gemini) are deferred to Step 9; SSE streaming and binary parsing are intentionally deferred.
+

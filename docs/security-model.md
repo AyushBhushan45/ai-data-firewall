@@ -252,6 +252,36 @@ $$\mathbf{DETECTION \ne POLICY \ne TRANSFORMATION}$$
 
 - **No Absolute Guarantees**: No automated scanner can detect 100% of adversarial prompt injections or obfuscated secrets. Attackers continually discover novel linguistic evasion techniques.
 - **Coordinate Accuracy Dependency**: The transformation layer relies on the precision of coordinates produced by detectors. If a detector reports inaccurate offsets, redaction may be misaligned.
-- **Defense in Depth**: AI Data Firewall must be deployed as one layer within a multi-tiered security architecture alongside IAM least-privilege policies, sandboxed tool execution environments, and application-level authorization.
 - **False Positives vs. False Negatives**: Strict security policies increase the rate of false positives (blocking benign code snippets or math proofs). The policy engine is designed to be tuned per environment to balance security and usability.
+
+---
+
+## 10. Reverse Proxy Security Model (Step 8)
+
+### Localhost-Only Default Binding
+- **Security Invariant**: The proxy binds strictly to `127.0.0.1` (loopback) by default.
+- **Threat Mitigated**: Binding to `0.0.0.0` or public interfaces risks accidental LAN exposure of internal AI endpoints and credential interceptors.
+
+### Fixed Upstream & Strict Anti-SSRF / Anti-Open-Proxy
+- **Fixed Upstream Configuration**: The target upstream URL is established strictly via trusted server configuration (`ProxyConfig.upstream_url`) at proxy initialization.
+- **No Client-Controlled Target Routing**: Client headers (such as `X-Target-URL`, `X-Upstream-URL`, `X-Forwarded-Host`) and URL query parameters cannot alter the proxy's upstream destination.
+- **Threat Mitigated**: Prevents Server-Side Request Forgery (SSRF) and prevents using the firewall as an arbitrary open proxy on internal networks.
+
+### Bidirectional Enforcement
+- **Request BLOCK**: When request inspection triggers `BLOCK`, request processing terminates immediately. The request is **never forwarded upstream**, and the client receives a safe HTTP `403 Forbidden` response (`firewall_request_blocked`).
+- **Response BLOCK**: When response inspection triggers `BLOCK`, the upstream response body is dropped entirely. The client receives a safe HTTP `502 Bad Gateway` response (`firewall_response_blocked`) preventing downstream secret disclosure.
+
+### Header & Credential Confidentiality
+- **Hop-by-Hop Header Stripping**: Headers including `Connection`, `Upgrade`, `Keep-Alive`, `Proxy-Authorization`, and `Transfer-Encoding` are stripped before forwarding.
+- **Authorization Header Protection**: Inbound `Authorization` headers are passed to the upstream provider when required, but are **never logged**, never included in error responses, and never stored in memory outside the active connection.
+
+### Resource Bounding & Safe Timeouts
+- **Configurable Body Limits**: Requests exceeding `max_request_body_bytes` return HTTP `413 Payload Too Large`; responses exceeding `max_response_body_bytes` return HTTP `502 Bad Gateway`.
+- **Comprehensive Timeouts**: Dedicated connection, read, write, and total deadlines prevent connection hanging or Slowloris resource exhaustion.
+
+### Explicit Limitations (Pre-Alpha)
+- **SSE Streaming**: Server-Sent Events (`text/event-stream`) inspection is deferred to future milestones.
+- **Binary Content**: Non-text content types (e.g. `image/*`, `application/octet-stream`) are passed through without semantic inspection.
+- **Provider-Specific Adapters**: OpenAI/Anthropic/Gemini schema normalization is deferred to Step 9.
+
 

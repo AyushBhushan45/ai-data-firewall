@@ -224,3 +224,50 @@ ruff format --check .
 # Format code
 ruff format .
 ```
+
+---
+
+## 5. Running the Local Reverse Proxy (Step 8)
+
+### Programmatic Usage
+```python
+from aifirewall.proxy import ProxyConfig, FirewallProxy
+from aifirewall.policy import PolicyConfig, PolicyRule, PolicyAction
+from aifirewall.core.types import DetectionCategory
+
+# 1. Configure the proxy with a fixed upstream AI target
+config = ProxyConfig(
+    upstream_url="https://api.openai.com",  # or local model at http://127.0.0.1:11434
+    host="127.0.0.1",
+    port=8080,
+)
+
+# 2. Start the proxy
+proxy = FirewallProxy(config=config)
+# proxy.run()  # Starts Uvicorn server on 127.0.0.1:8080
+```
+
+### Writing Offline Integration Tests
+To test the proxy without outbound internet calls, use `httpx.ASGITransport`:
+```python
+from fastapi import FastAPI
+import httpx
+from aifirewall.proxy import ProxyConfig, create_proxy_app
+from aifirewall.proxy.upstream import UpstreamClient
+
+# Mock upstream ASGI app
+upstream_app = FastAPI()
+@upstream_app.post("/v1/chat/completions")
+async def mock_chat():
+    return {"choices": [{"message": {"role": "assistant", "content": "Hello!"}}]}
+
+config = ProxyConfig(upstream_url="http://testupstream")
+upstream_client = UpstreamClient(config)
+upstream_client._client = httpx.AsyncClient(
+    transport=httpx.ASGITransport(app=upstream_app),
+    base_url="http://testupstream",
+)
+
+proxy_app = create_proxy_app(config, upstream_client=upstream_client)
+```
+

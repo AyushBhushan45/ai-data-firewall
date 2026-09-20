@@ -36,6 +36,12 @@ from aifirewall.protocols import (
     ContentTransformer,
     ProviderAdapter,
 )
+from aifirewall.proxy import (
+    DetectorRegistry,
+    FirewallProxy,
+    ProxyConfig,
+    SecurityPipeline,
+)
 from aifirewall.transformation import (
     RedactionEngine,
     RedactionResult,
@@ -78,6 +84,11 @@ __all__ = [
     # Transformation engine & results
     "RedactionEngine",
     "RedactionResult",
+    # Reverse proxy & security pipeline
+    "DetectorRegistry",
+    "FirewallProxy",
+    "ProxyConfig",
+    "SecurityPipeline",
     # Architectural protocols
     "AuditSink",
     "ContentTransformer",
