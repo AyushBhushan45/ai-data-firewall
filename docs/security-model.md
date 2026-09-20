@@ -204,8 +204,54 @@ A core guarantee of the AI Data Firewall architecture is:
 
 ---
 
-## 8. Assumptions & Limitations
+## 8. Content Transformation & Redaction Security Model (Step 7)
+
+Step 7 introduces the first real content mutation capability through the `RedactionEngine`. The transformation security model enforces strict boundaries and privacy guarantees:
+
+### Policy-Controlled Transformation Boundary
+$$\mathbf{DETECTION \ne POLICY \ne TRANSFORMATION}$$
+
+- **Policy Controls Mutation**: Findings produced by detectors do NOT automatically trigger redaction. Transformation is strictly contingent on receiving a `PolicyDecision` with `action == PolicyAction.REDACT`.
+- **Passthrough on Non-Redact Actions**: If the policy evaluates to `ALLOW`, `WARN`, or `BLOCK`, the engine returns the original content unmodified (`changed=False`, `redaction_count=0`). Blocking enforcement is left to the future proxy/pipeline layer.
+
+### Coordinate-Based Transformation (No Re-Detection)
+- The transformation engine operates strictly on pre-computed character span coordinates (`char_start`, `char_end`) from `ContentLocation`.
+- The engine does NOT re-run secret pattern regexes, invoke detectors, or re-evaluate policy rules.
+
+### Right-to-Left Offset Safety
+- Sequential left-to-right replacement alters string lengths and invalidates subsequent character offsets.
+- To prevent offset corruption, replacements are executed strictly from **RIGHT TO LEFT** (`char_start` descending).
+- Because modifications only affect characters after the current span, character offsets to the left of the replacement point remain completely stable throughout the transformation pass.
+
+### Deterministic Overlap & Nesting Resolution
+- Overlapping or nested spans ($B.\text{char\_start} < A.\text{char\_end}$) are clustered into unified maximal spans $[\min(\text{start}), \max(\text{end})]$.
+- Cluster placeholder is chosen deterministically by:
+  1. Severity (`CRITICAL > HIGH > MEDIUM > LOW > INFO`)
+  2. Confidence (descending)
+  3. Span length (descending)
+  4. Detection ID (ascending lexicographical order)
+- Guarantees 100% deterministic output invariant to detection input ordering or Python list permutations.
+
+### Privacy Invariants & Ephemeral Processing
+1. **In-Memory Caller Content**: Operates strictly on caller-supplied text in-memory.
+2. **Zero Secret Persistence**: Never writes raw secrets or transformed text to disk or databases.
+3. **Zero Telemetry or External Calls**: Does not invoke external APIs, AI providers, or telemetry endpoints.
+4. **Zero State Retention**: The engine is completely stateless between calls.
+5. **Caller-Owned Immutability**: Caller-supplied strings, detection lists, and policy decisions are never mutated.
+6. **Audit-Safe Representation**: `RedactionResult.__repr__` and `__str__` omit `content` and raw sensitive values.
+7. **Safe Diagnostic Errors**: Coordinate validation failures raise `ValidationError` with messages containing numeric indices and detection IDs, never raw secret values or content snippets.
+
+### Fail-Safe Transformation Invariants
+- Invalid coordinates (negative offsets, inverted spans, offsets exceeding content length) immediately raise `ValidationError`.
+- Silent failures are prohibited: the engine never catches exceptions to silently return unredacted content (`fail-closed`).
+- Empty spans ($\text{char\_start} == \text{char\_end}$) contain no text characters and are safely skipped without mutating content.
+
+---
+
+## 9. Assumptions & Limitations
 
 - **No Absolute Guarantees**: No automated scanner can detect 100% of adversarial prompt injections or obfuscated secrets. Attackers continually discover novel linguistic evasion techniques.
+- **Coordinate Accuracy Dependency**: The transformation layer relies on the precision of coordinates produced by detectors. If a detector reports inaccurate offsets, redaction may be misaligned.
 - **Defense in Depth**: AI Data Firewall must be deployed as one layer within a multi-tiered security architecture alongside IAM least-privilege policies, sandboxed tool execution environments, and application-level authorization.
 - **False Positives vs. False Negatives**: Strict security policies increase the rate of false positives (blocking benign code snippets or math proofs). The policy engine is designed to be tuned per environment to balance security and usability.
+

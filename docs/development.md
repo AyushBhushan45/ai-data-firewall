@@ -123,6 +123,54 @@ Policy rules are declarative domain models evaluated by the `PolicyEngine`. In S
    - Verify that boundary thresholds (severity, confidence) behave inclusively.
    - Verify deterministic conflict resolution against lower-priority or conflicting rules.
 
+### How to Use & Extend the Redaction Engine (Step 7)
+
+The `RedactionEngine` performs deterministic, policy-controlled string transformation:
+
+1. **Standard Execution Flow**:
+   ```python
+   from aifirewall.transformation import RedactionEngine
+
+   engine = RedactionEngine()
+   result = engine.redact(
+       content=original_prompt,
+       detections=findings,
+       decision=policy_decision,
+   )
+
+   if result.changed:
+       forwardable_text = result.content
+   ```
+2. **Configuring Custom Semantic Placeholders**:
+   Placeholders can be customized per category:
+   ```python
+   from aifirewall.core.types import DetectionCategory
+   from aifirewall.transformation import RedactionEngine
+
+   custom_placeholders = {
+       DetectionCategory.SECRET: "[CREDENTIAL_REDACTED]",
+       DetectionCategory.PII: "[PII_REDACTED]",
+       "custom_category": "[REDACTED_ENTITY]",
+   }
+   engine = RedactionEngine(
+       placeholders=custom_placeholders,
+       default_placeholder="[REDACTED]",
+   )
+   ```
+3. **Protocol Compatibility**:
+   `RedactionEngine` implements the `ContentTransformer` protocol:
+   ```python
+   from aifirewall.protocols import ContentTransformer
+
+   assert isinstance(engine, ContentTransformer)
+   sanitized = engine.transform(content, detections)
+   ```
+4. **Contributor Invariants for Future Transformation Strategies**:
+   - **Never Re-Detect**: Rely purely on `char_start` and `char_end` coordinates in `ContentLocation`.
+   - **Offset Safety**: Apply string mutations from right to left (`char_start` descending) to maintain index validity.
+   - **Deterministic Overlaps**: Resolve overlapping spans deterministically and independently of input order.
+   - **Privacy Boundaries**: Never format raw sensitive strings into exception messages, log statements, `__repr__`, or `__str__`.
+
 ---
 
 ## 3. Testing Strategy

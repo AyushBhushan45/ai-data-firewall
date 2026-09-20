@@ -36,6 +36,10 @@ from aifirewall.protocols import (
     ContentTransformer,
     ProviderAdapter,
 )
+from aifirewall.transformation import (
+    RedactionEngine,
+    RedactionResult,
+)
 
 __version__ = "0.1.0"
 
@@ -71,6 +75,9 @@ __all__ = [
     "PolicyContext",
     "PolicyEngine",
     "PolicyRule",
+    # Transformation engine & results
+    "RedactionEngine",
+    "RedactionResult",
     # Architectural protocols
     "AuditSink",
     "ContentTransformer",

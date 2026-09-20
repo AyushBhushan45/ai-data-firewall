@@ -1,14 +1,14 @@
 # AI Data Firewall: Complete System Architecture & Technical Design
 
 > [!IMPORTANT]
-> **Policy Engine Milestone (Step 6 Implemented)**
+> **Redaction Engine Milestone (Step 7 Implemented)**
 >
-> Step 6 implements the declarative policy evaluation engine:
-> - **`PolicyEngine`** ([`src/aifirewall/policy/engine.py`](../src/aifirewall/policy/engine.py)): Evaluates normalized detector findings against declarative rules.
-> - **Domain Models**: `PolicyRule`, `PolicyConfig`, `PolicyContext` ([`src/aifirewall/policy/models.py`](../src/aifirewall/policy/models.py)).
-> - **Core Guarantees**: Strict architectural boundary (`DETECTION ≠ POLICY ≠ TRANSFORMATION`), normalized findings input (`DetectionResult[]`), deterministic severity ordering, inclusive confidence thresholds, numeric rule priorities, action precedence conflict resolution ($\mathbf{BLOCK > REDACT > WARN > ALLOW}$), default `ALLOW` safety, and privacy-preserving explainable decisions.
+> Step 7 implements the deterministic content transformation layer:
+> - **`RedactionEngine`** ([`src/aifirewall/transformation/redaction.py`](../src/aifirewall/transformation/redaction.py)): Executes deterministic, policy-controlled string mutations.
+> - **Domain Models**: `RedactionResult` ([`src/aifirewall/transformation/models.py`](../src/aifirewall/transformation/models.py)).
+> - **Core Guarantees**: Strict architectural boundary ($\mathbf{DETECTION \ne POLICY \ne TRANSFORMATION}$), right-to-left replacement preserving string offsets, deterministic overlap and nesting clustering ($\mathbf{Severity > Confidence > Span\ Length > ID}$), safe semantic placeholders (`[REDACTED_SECRET]`), strict span coordinate validation, caller-owned argument immutability, zero secret persistence, and privacy-safe representations (`__repr__` and `__str__` exclude raw/transformed text).
 >
-> **Explicit Boundary:** Text transformation (redaction), HTTP proxy daemons, PII detectors, prompt-injection detectors, and provider adapters remain **PLANNED FOR FUTURE STEPS**.
+> **Explicit Boundary:** HTTP proxy daemons, PII detectors, prompt-injection detectors, database persistence, telemetry, and provider adapters remain **PLANNED FOR FUTURE STEPS**.
 
 ---
 
@@ -124,7 +124,7 @@ src/aifirewall/
 | `detectors/secret.py`| Pattern-based detection of common API keys, personal access tokens, and credential assignments (`SecretDetector`). | **Implemented in Step 5** |
 | `detectors/` (others)| Scanners for PII, prompt injections, and future detectors. | *Planned for Future Steps* |
 | `policy/` | Declarative policy models (`PolicyRule`, `PolicyConfig`, `PolicyContext`) and deterministic evaluation engine (`PolicyEngine`). | **Implemented in Step 6** |
-| `transform/` | Surgical text masking, synthetic replacement, and span merging. | *Planned for Future Steps* |
+| `transformation/` (`transform/`) | Deterministic, policy-controlled content redaction engine (`RedactionEngine`, `RedactionResult`). | **Implemented in Step 7** |
 | `providers/` | External provider format mappings and transport adapters. | *Planned for Future Steps* |
 | `proxy/` | Local HTTP reverse-proxy runtime daemon. | *Planned for Future Steps* |
 
@@ -363,21 +363,88 @@ The resulting `PolicyDecision` reason provides clear audit explanations without 
 
 ---
 
-## 8. Content Transformation & Overlapping Spans
+## 8. Content Transformation & Redaction Engine (Implemented in Step 7)
 
-When a `REDACT` action is decided, the `ContentTransformer` modifies the text before forwarding:
+The transformation layer is the **ONLY** component in the architecture permitted to mutate content. It operates strictly after the `PolicyEngine` has evaluated detection findings and issued a `PolicyAction.REDACT` decision.
 
-### Transformation Types
-- **Masking / Redaction**: Replaces sensitive spans with descriptive token placeholders, e.g., `[REDACTED:API_KEY]`, `[REDACTED:EMAIL]`.
-- **Character Masking**: Replaces interior characters with fixed masks, e.g., `sk-••••••••••••`.
-- **Synthetic Replacement**: Substitutes realistic dummy values for testing pipelines.
+### Architectural Separation
+$$\mathbf{DETECTION \ne POLICY \ne TRANSFORMATION}$$
 
-### Handling Overlapping Spans
-If two detectors flag overlapping character spans (for example, a secret pattern containing characters that also resemble an email address):
-1. **Sort Spans**: Findings are sorted by `char_start` ascending, and by length descending.
-2. **Union / Merge**: Overlapping or nested spans are merged into a single maximal replacement span.
-3. **Reverse Replacement**: Transformations are applied from the end of the string to the beginning (`char_start` descending) to ensure that earlier character offsets remain valid throughout the transformation pass.
-4. **Text Integrity**: Unmatched characters outside the replacement spans are strictly preserved to prevent payload corruption.
+- **Detector**: *"What did I find?"* (`DetectionResult[]`)
+- **Policy**: *"What should happen?"* (`PolicyDecision`)
+- **Transformation**: *"How should the content change?"* (`RedactionResult`)
+
+The `RedactionEngine` does NOT perform secret detection, run regular expressions, evaluate policy rules, inspect network packets, or call external providers.
+
+### Redaction API & Protocol Conformance
+
+The `RedactionEngine` ([`src/aifirewall/transformation/redaction.py`](../src/aifirewall/transformation/redaction.py)) exposes a clean, provider-agnostic signature:
+
+```python
+def redact(
+    self,
+    content: str,
+    detections: Sequence[DetectionResult],
+    decision: PolicyDecision,
+) -> RedactionResult: ...
+```
+
+It also implements the `ContentTransformer` structural subtyping protocol:
+```python
+def transform(
+    self,
+    content: str,
+    detections: Sequence[DetectionResult] | list[DetectionResult],
+) -> str: ...
+```
+
+### Policy-Controlled Governance
+Transformation is strictly governed by the supplied `PolicyDecision`:
+- **`ALLOW`**: Returns content unmodified (`changed=False`, `redaction_count=0`).
+- **`WARN`**: Returns content unmodified (`changed=False`, `redaction_count=0`).
+- **`BLOCK`**: Returns content unmodified in Step 7 (`changed=False`, `redaction_count=0`). Blocking enforcement is handled by the future proxy/pipeline layer.
+- **`REDACT`**: Executes surgical redaction on the candidate detections.
+
+### Semantic Category-Aware Placeholders
+Sensitive spans are replaced with category-specific placeholders:
+- `DetectionCategory.SECRET` $\rightarrow$ `[REDACTED_SECRET]`
+- `DetectionCategory.PII` $\rightarrow$ `[REDACTED_PII]`
+- `DetectionCategory.PROMPT_INJECTION` $\rightarrow$ `[REDACTED_PROMPT_INJECTION]`
+- `DetectionCategory.OTHER` $\rightarrow$ `[REDACTED]`
+- Custom placeholder mappings can be configured upon engine instantiation.
+
+### Offset Safety via Right-to-Left Application
+Replacing substrings sequentially from left to right mutates subsequent character indices. To eliminate offset drift and guarantee mathematical stability:
+1. All candidate spans are validated against content boundaries.
+2. Spans are sorted by `char_start` ascending.
+3. Overlapping and nested spans are clustered.
+4. Replacements are applied strictly from **RIGHT TO LEFT** (`char_start` descending).
+Because each replacement only mutates text to the right of earlier candidate offsets, prefix coordinates remain completely valid throughout the entire transformation pass without index re-computation.
+
+### Deterministic Overlap & Nesting Resolution
+In a multi-detector pipeline, finding spans may partially overlap or nest. Rather than applying multiple overlapping replacements that corrupt string structure, the engine clusters overlapping spans ($B.\text{char\_start} < A.\text{char\_end}$) into unified maximal replacement spans $[\min(\text{start}), \max(\text{end})]$.
+
+Within each cluster, the winning detection determines the placeholder via a deterministic 4-tier hierarchy:
+1. **Severity**: `CRITICAL > HIGH > MEDIUM > LOW > INFO`
+2. **Confidence**: Descending float score
+3. **Span Length**: Descending span size ($\text{char\_end} - \text{char\_start}$)
+4. **Detection ID**: Ascending lexicographical string order
+
+This ensures identical output regardless of input detection ordering or Python list permutations.
+
+### Span Validation & Empty Spans
+- Coordinates are validated strictly: $\text{char\_start} \ge 0$, $\text{char\_end} \ge 0$, $\text{char\_start} \le \text{char\_end}$, and $\text{char\_end} \le \text{len(content)}$.
+- Violations raise `ValidationError` with privacy-safe diagnostic messages that never leak content or secret fragments.
+- Zero-width empty spans ($\text{char\_start} == \text{char\_end}$) contain no text characters and are safely ignored without mutating content.
+
+### Privacy-Preserving Result Model (`RedactionResult`)
+The `RedactionResult` model ([`src/aifirewall/transformation/models.py`](../src/aifirewall/transformation/models.py)) provides audit-safe metadata:
+- `content`: The resulting string (transformed or original).
+- `changed`: Boolean indicating whether transformation occurred.
+- `redaction_count`: Number of unique replacement operations applied.
+- `redacted_detection_ids`: Sorted tuple of detection IDs that contributed to applied redactions.
+- `categories`: Sorted tuple of distinct categories that were redacted.
+- **Privacy Rule**: `__repr__` and `__str__` strictly omit `content` to prevent accidental sensitive data disclosure in debuggers or application loggers.
 
 ---
 
