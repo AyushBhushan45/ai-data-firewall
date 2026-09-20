@@ -1,0 +1,66 @@
+name: Bug Report
+description: Create a report to help us reproduce and fix a bug
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reporting an issue! Please do NOT include real API keys, passwords, personal identifiable information (PII), or private data in this report.
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: A clear and concise description of what the bug is.
+      placeholder: Describe the problem...
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce
+      description: Steps to reproduce the behavior.
+      placeholder: |
+        1. Install package version '...'
+        2. Execute command '...'
+        3. See error '...'
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: A clear and concise description of what you expected to happen.
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+      description: What actually occurred, including relevant non-sensitive stack traces or error messages.
+    validations:
+      required: true
+  - type: input
+    id: python-version
+    attributes:
+      label: Python Version
+      description: Which Python version are you using?
+      placeholder: "e.g., Python 3.11.9, 3.12.3"
+    validations:
+      required: true
+  - type: input
+    id: project-version
+    attributes:
+      label: Package Version
+      description: Which version of ai-data-firewall are you running?
+      placeholder: "e.g., 0.1.0"
+    validations:
+      required: true
+  - type: input
+    id: os-environment
+    attributes:
+      label: Operating System / Environment
+      description: OS version and environment details.
+      placeholder: "e.g., Ubuntu 22.04 LTS, macOS Sonoma, Windows 11"
+    validations:
+      required: false
