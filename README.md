@@ -7,9 +7,9 @@ An open-source, local-first security layer for AI applications.
 ## Project Status
 
 > [!NOTE]
-> **Current Status: Early Development (Pre-Alpha)**
+> **Current Status: Early Development (Pre-Alpha - Step 3 Architecture Designed)**
 >
-> AI Data Firewall is in its foundational stage. Core architectural abstractions, documentation, packaging, and testing infrastructure are established, but the actual security inspection, detection, and firewalling engines are **not yet implemented**.
+> AI Data Firewall is in its foundational stage. The technical architecture, threat model, domain types, and protocols have been established, but the actual security detectors, proxy daemon, and provider integrations are **not yet implemented**.
 >
 > This project is **not** currently suitable for production use or as an active security perimeter.
 
@@ -19,7 +19,7 @@ An open-source, local-first security layer for AI applications.
 
 Modern AI-driven applications routinely process sensitive information:
 - User prompts and conversation histories
-- Context documents retrieved from internal databases or external knowledge bases
+- Context documents retrieved from internal databases or external knowledge bases (RAG)
 - Source code, system configurations, and internal infrastructure details
 - Secrets, credentials, and access tokens accidentally embedded in developer prompts
 - Unsanitized inputs from third-party sources vulnerable to prompt manipulation
@@ -30,9 +30,94 @@ AI Data Firewall is designed to serve as an intermediary security layer position
 
 ---
 
-## Vision
+## Architecture Pipeline
 
-The long-term vision of AI Data Firewall is to deliver a transparent, vendor-neutral, local-first security boundary that developers can run within their own infrastructure to monitor, audit, and sanitize AI interactions without introducing cloud dependencies or sacrificing developer velocity.
+```text
+       +-----------------------+
+       |    AI APPLICATION     |
+       +-----------------------+
+                   |
+                   | 1. Outgoing AI Request (HTTP/SDK)
+                   v
++-------------------------------------------------------------+
+|                      AI DATA FIREWALL                       |
+|                                                             |
+|  [ Request Intake & Routing ]                               |
+|            |                                                |
+|            v                                                |
+|  [ Provider Normalization ] -> [ Content Extraction ]       |
+|                                         |                   |
+|                                         v                   |
+|                                [ Detection Engine ]         |
+|                                (Secrets, PII, Injection)    |
+|                                         |                   |
+|                                         v                   |
+|                                [ Risk & Policy Engine ]     |
+|                                         |                   |
+|                   +---------------------+-----------------+ |
+|                   |                                       | |
+|                   v                                       v |
+|               [ BLOCK ]                              [ CONTINUE ]
+|                   |                                       | |
+|                   v                                       v |
+|          (Safe Error Return)                        [ Transform ]
+|                                                     (Redaction)     |
+|                                                           | |
+|                                                           v |
+|                                                    [ Forwarding ]
++-----------------------------------------------------------|-+
+                                                            |
+                                                            | 2. Allowed / Transformed Request
+                                                            v
+                                               +-------------------------+
+                                               |   AI MODEL / PROVIDER   |
+                                               +-------------------------+
+                                                            |
+                                                            | 3. Raw Model Response
+                                                            v
++-----------------------------------------------------------|-+
+|  [ Response Intake ] <------------------------------------+ |
+|            |                                                |
+|            v                                                |
+|  [ Response Normalization ] -> [ Content Extraction ]       |
+|                                         |                   |
+|                                         v                   |
+|                                [ Detection Engine ]         |
+|                                (Leaks, Unsafe Outputs)      |
+|                                         |                   |
+|                                         v                   |
+|                                [ Policy Engine ]            |
+|                                         |                   |
+|                   +---------------------+-----------------+ |
+|                   |                                       | |
+|                   v                                       v |
+|               [ BLOCK ]                               [ ALLOW ]
+|                   |                                       | |
+|                   v                                       v |
+|          (Safe Policy Error)                       [ Transform ]
+|                                                    (Output Redaction)|
+|                                                           | |
+|                                                           v |
+|                                                  [ Client Delivery ]
++-----------------------------------------------------------|-+
+                                                            |
+                                                            | 4. Sanitized Completion
+                                                            v
+                                               +-----------------------+
+                                               |    AI APPLICATION     |
+                                               +-----------------------+
+```
+
+---
+
+## Core Design Principles
+
+- **Local-First**: Operates directly inside the user's infrastructure or local developer environment. Zero mandatory cloud services.
+- **Privacy-First**: Sensitive prompts and model outputs are never sent to external telemetry or third parties. Raw prompts and secrets are never stored in default audit logs.
+- **Transparent**: Every inspection decision and policy match is explainable, traceable, and inspectable.
+- **Modular**: Detection modules, policy evaluators, and format handlers are built with decoupled interfaces for straightforward extension.
+- **Provider-Agnostic**: Operates on normalized internal representations, independent of any single model provider or proprietary LLM API.
+- **Open Source**: Community-governed, self-hostable, and inspectable by any contributor.
 
 ---
 
@@ -44,30 +129,10 @@ The following capabilities represent the planned roadmap and are **NOT YET IMPLE
 - **PII Detection**: Recognition and handling of Personally Identifiable Information (emails, phone numbers, identifiers) before data leaves local infrastructure.
 - **Prompt Injection Detection**: Heuristic and pattern-based analysis to flag suspicious instructions aimed at overriding model behavior.
 - **Configurable Policies**: Declarative rules defining whether to allow, warn, redact, or block specific traffic patterns.
-- **Request Inspection**: Pre-flight analysis of outgoing payloads before transmission to model providers.
-- **Response Inspection**: Post-flight analysis of model-generated text before delivery to the client application.
-- **Local Audit Logs**: Structured, privacy-preserving audit logs for security observability.
+- **Request & Response Inspection**: Pre-flight analysis of outgoing payloads and post-flight analysis of model-generated text.
+- **Local Audit Logs**: Structured, privacy-preserving audit logs for security observability without payload duplication.
 - **Provider Abstraction**: Consistent security semantics across various upstream model providers (e.g., OpenAI, Anthropic, local LLMs).
 - **Local Development / Mock Mode**: Tooling to simulate policies and test security scenarios without active external API calls.
-- **Developer SDKs & Integrations**: Simple client libraries and reverse-proxy setups for painless integration.
-
----
-
-## Design Principles
-
-- **Local-First**: Operates directly inside the user's infrastructure or local developer environment.
-- **Privacy-First**: Sensitive prompts and model outputs are not sent to any external telemetry, analysis, or third-party service.
-- **Transparent**: Every inspection decision and policy match is explainable, traceable, and inspectable.
-- **Modular**: Detection modules, policy evaluators, and format handlers are built with decoupled interfaces for straightforward extension.
-- **Provider-Agnostic**: Independent of any single model provider or proprietary LLM API.
-- **Open Source**: Community-governed, self-hostable, and inspectable by any contributor.
-
----
-
-## Current Limitations
-
-- **Foundation Only**: The current repository contains project structure, packaging configurations, initial documentation, test harnesses, and CI scaffolding.
-- **No Active Protection**: No real-time filtering, detection, or proxying logic is currently active.
 
 ---
 
@@ -75,61 +140,27 @@ The following capabilities represent the planned roadmap and are **NOT YET IMPLE
 
 Development is structured into incremental phases:
 
-- **Phase 0: Project Foundation** *(Current)* — Packaging, documentation, code standards, smoke tests, CI.
-- **Phase 1: Detection Engine** — Core scanning interfaces, regex/pattern token detection, unit tests.
-- **Phase 2: Policy Engine** — Declarative rule evaluation (allow, warn, redact, block).
-- **Phase 3: Local Proxy** — Minimal HTTP/forwarding interception layer.
-- **Phase 4: Provider Integration** — Adapter layers for standard LLM protocol formats.
-- **Phase 5: Developer Tooling** — CLI, local testing harness, and configuration generators.
-- **Phase 6: Production Hardening** — Benchmarking, performance optimization, and security audits.
+- **Phase 0: Project Foundation** *(Complete)* — Packaging, repository scaffolding, code standards, smoke tests, CI.
+- **Phase 1: Technical Architecture & Design** *(Complete)* — System architecture, threat models, domain protocols, ADRs.
+- **Phase 2: Core Detection Engine** — Scanning protocols, high-confidence secret and credential detection, test fixtures.
+- **Phase 3: Policy Engine** — Declarative rule evaluation (allow, warn, redact, block) and conflict resolution.
+- **Phase 4: Transformation Layer** — Safe string masking and redaction without payload corruption.
+- **Phase 5: Provider Normalization & Mock Provider** — OpenAI/Anthropic format normalizers and offline test harness.
+- **Phase 6: Local Proxy Daemon** — Minimal HTTP forwarding and reverse-proxy engine.
+- **Phase 7: Developer Tooling & CLI** — Command-line interface and configuration validation.
 
 ---
 
-## Repository Structure
+## Documentation
 
-```text
-ai-data-firewall/
-│
-├── .github/
-│   ├── workflows/
-│   │   └── ci.yml               # Automated linting and test execution
-│   │
-│   └── ISSUE_TEMPLATE/
-│       ├── bug_report.yml       # Bug report issue template
-│       └── feature_request.yml  # Feature proposal template
-│
-├── docs/
-│   ├── architecture.md          # Planned architecture and data flow
-│   ├── development.md           # Local setup and engineering guidelines
-│   └── security-model.md        # Conceptual trust boundaries and threat vectors
-│
-├── src/
-│   └── aifirewall/              # Core Python package namespace
-│       └── __init__.py          # Package version and metadata
-│
-├── tests/
-│   └── test_package.py          # Package import and version smoke test
-│
-├── .gitignore                   # Standard Python/IDE ignore patterns
-├── CHANGELOG.md                 # Version release history
-├── CODE_OF_CONDUCT.md           # Community guidelines (Contributor Covenant)
-├── CONTRIBUTING.md               # Guide for developers and contributors
-├── LICENSE                      # Apache License 2.0
-├── README.md                    # Project overview and status
-├── SECURITY.md                  # Vulnerability disclosure policy
-└── pyproject.toml               # Package build, dependencies, pytest & ruff configs
-```
+- [System Architecture](docs/architecture.md): Complete technical design, module responsibilities, and request/response pipelines.
+- [Architecture Decision Records (ADRs)](docs/architecture-decisions.md): Documented architectural trade-offs and decisions.
+- [Security Threat Model](docs/security-model.md): Assets, trust boundaries, attack vectors, and privacy guarantees.
+- [Development Guide](docs/development.md): Coding conventions, testing philosophy, and extension guides.
 
 ---
 
-## Development
-
-### Prerequisites
-
-- Python 3.11+
-- Git
-
-### Quick Setup
+## Development Setup
 
 ```bash
 # Clone the repository
@@ -146,10 +177,8 @@ pip install -e ".[dev]"
 # Run tests
 pytest
 
-# Run linter
+# Run linter & formatter checks
 ruff check .
-
-# Check formatting
 ruff format --check .
 ```
 
