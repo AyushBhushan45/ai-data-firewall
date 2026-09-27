@@ -103,7 +103,7 @@ def create_safe_error_payload(code: str, message: str) -> dict[str, Any]:
     """
     return {
         "error": {
-            "code": str(code),
-            "message": str(message),
+            "code": code,
+            "message": message,
         }
     }
