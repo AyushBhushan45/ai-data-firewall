@@ -54,6 +54,9 @@ ruff check .
 
 # Check code formatting
 ruff format --check .
+
+# Run static type checking
+npx --yes pyright
 ```
 
 ---

@@ -11,18 +11,27 @@ permissions:
 
 jobs:
   test:
-    name: Lint & Test
+    name: Lint, Type Check & Test (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Python 3.11
+      - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: ${{ matrix.python-version }}
           cache: "pip"
+
+      - name: Set up Node.js for Pyright
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
 
       - name: Install dependencies
         run: |
@@ -35,5 +44,15 @@ jobs:
       - name: Run Ruff (Format Check)
         run: ruff format --check .
 
+      - name: Run Pyright (Type Check)
+        run: npx --yes pyright
+
       - name: Run pytest
         run: pytest
+
+      - name: Test CLI Smoke Test
+        run: |
+          aifirewall --version
+          aifirewall --help
+          aifirewall providers
+          aifirewall scan "Hello, world!"

@@ -1,9 +1,11 @@
 # AI Data Firewall: Complete System Architecture & Technical Design
 
 > [!IMPORTANT]
-> **Provider Adapters & AI Normalization Milestone (Step 9 Implemented)**
+> **CLI, End-to-End Hardening & v0.1.0 Release Milestone (Step 10 Implemented)**
 >
-> Step 9 makes the firewall provider-aware without making the security engine provider-dependent:
+> Step 10 completes the initial v0.1 foundation:
+> - **Unified CLI** ([`src/aifirewall/cli.py`](../src/aifirewall/cli.py)): `aifirewall start`, `aifirewall scan`, `aifirewall providers`, and version reporting.
+> - **Configuration Management** ([`src/aifirewall/config.py`](../src/aifirewall/config.py)): Deterministic precedence (CLI > Env > File > Defaults) with standard library TOML/JSON parsing.
 > - **`ProviderAdapter` & `ProviderRegistry`** ([`src/aifirewall/providers/`](../src/aifirewall/providers/)): Modular translator architecture supporting OpenAI (`openai`), Anthropic (`anthropic`), Gemini (`gemini`), and Ollama (`ollama`).
 > - **Normalization Pipeline**: Translates provider HTTP payloads into normalized domain models (`NormalizedAIRequest`, `NormalizedAIResponse`, `NormalizedMessage`), inspects normalized text, evaluates policies, redacts normalized text right-to-left, and denormalizes back into compliant provider formats.
 > - **Security Separation**: Detectors, PolicyEngine, and RedactionEngine remain 100% provider-agnostic with zero imports of provider-specific adapter classes.

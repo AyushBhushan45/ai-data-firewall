@@ -1,5 +1,9 @@
 """AI Data Firewall: An open-source, local-first security layer for AI applications."""
 
+from aifirewall.config import (
+    FirewallConfig,
+    build_firewall_config,
+)
 from aifirewall.core.errors import (
     AIFirewallError,
     ConfigurationError,
@@ -123,4 +127,7 @@ __all__ = [
     "UnsupportedProviderError",
     "UnsupportedPayloadError",
     "UnsupportedStreamingError",
+    # Configuration management
+    "FirewallConfig",
+    "build_firewall_config",
 ]

@@ -1,33 +1,49 @@
 # Security Policy
 
+## Supported Versions
+
+Only the latest pre-alpha release is actively evaluated for security fixes:
+
+| Version | Supported | Notes |
+| :--- | :--- | :--- |
+| **0.1.x** | :white_check_mark: | Current active release branch |
+| **< 0.1.0** | :x: | Experimental development increments |
+
+---
+
 ## Project Scope & Maturity
 
-AI Data Firewall is currently in **early development (pre-alpha)**. Architectural components, interfaces, and core engines are being developed incrementally. At this phase, security boundaries, detection algorithms, and policy enforcement mechanisms are under active initial design and are not yet fully implemented.
+AI Data Firewall is currently in **early development (v0.1.0 pre-alpha)**. While core secret detection, policy evaluation, right-to-left redaction, provider adapters, and local proxying are implemented and tested, the software is experimental and under active development. It must not be relied upon as a sole enterprise security perimeter.
+
+---
 
 ## Reporting a Vulnerability
 
-We take the security of AI Data Firewall and the systems it aims to protect seriously. If you discover a security vulnerability or potential security flaw:
+We take the security of AI Data Firewall seriously. If you discover a security vulnerability or potential security flaw:
 
 - **Do NOT open a public issue.** Please avoid disclosing potential vulnerabilities publicly until the maintainers have had an opportunity to review and address them.
-- **GitHub Security Advisories:** Once enabled, please submit your findings via GitHub's private vulnerability reporting feature (under the "Security" tab -> "Advisories" -> "Report a vulnerability").
-- **Designated Channel:** Dedicated encrypted contact points (such as project PGP keys and an official security inbox) will be established and published prior to the first public production release.
+- **GitHub Security Advisories:** Please submit your findings via GitHub's private vulnerability reporting feature (under the "Security" tab -> "Advisories" -> "Report a vulnerability").
+- **Maintainer Notification:** Private vulnerability reports will be handled exclusively by project maintainers through GitHub's advisory workflow.
 
 When reporting an issue, please include:
-- A description of the issue and potential impact.
+- A description of the issue and its potential security impact.
 - Clear reproduction steps or a minimal proof of concept.
-- Any relevant context regarding the environment or configuration.
+- Relevant environment or configuration details.
+- **Never include live credentials, secrets, or sensitive production data in reports.**
+
+---
 
 ## Responsible Disclosure
 
-We ask that reporters practice responsible disclosure:
+We ask that researchers practice responsible disclosure:
 1. Allow reasonable time for the maintainers to investigate, verify, and remediate the reported vulnerability before sharing details publicly.
-2. Make a good faith effort to avoid privacy violations, destruction of data, and interruption or degradation of service during vulnerability research.
-3. Do not include actual live credentials, secrets, or sensitive personal data in your reports or test fixtures.
+2. Make a good-faith effort to avoid privacy violations, data destruction, and service degradation.
+3. Use only synthetic dummy credentials in proof-of-concept tests.
+
+---
 
 ## Security Disclaimer
 
-Please note the following critical boundaries:
-
-- **Pre-Alpha Status:** The software in this repository is experimental and under active development. It must not be relied upon as a production security boundary or sole security mechanism.
-- **Detection Imperfection:** Any heuristic, pattern-based, or model-assisted detection mechanism carries inherent risks of false positives and false negatives. No automated system can provide absolute guarantees.
-- **Defense in Depth:** AI Data Firewall is intended to serve as one layer in a defense-in-depth architecture. Users and adopters remain responsible for evaluating the security, privacy, and regulatory requirements of their applications and deployments.
+- **Pre-Alpha Status:** The software is experimental. Users and adopters remain responsible for evaluating security and compliance requirements.
+- **Detection Imperfection:** Pattern-based and heuristic detection mechanisms inherently carry false-positive and false-negative risks.
+- **Defense in Depth:** AI Data Firewall is intended to serve as one layer in a defense-in-depth architecture.

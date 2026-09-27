@@ -228,7 +228,7 @@ Quality assurance in AI Data Firewall spans four distinct tiers:
 # Activate virtual environment
 source .venv/bin/activate  # On Windows: .venv\Scripts\Activate.ps1
 
-# Run complete test suite
+# Run complete test suite (416 offline deterministic tests)
 pytest -v
 
 # Run linter
@@ -242,6 +242,14 @@ ruff format --check .
 
 # Format code
 ruff format .
+
+# Run static type checker
+npx --yes pyright
+
+# Run CLI locally
+python -m aifirewall.cli --help
+python -m aifirewall.cli providers
+python -m aifirewall.cli scan "test text"
 ```
 
 ---

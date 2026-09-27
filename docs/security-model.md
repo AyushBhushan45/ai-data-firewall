@@ -1,11 +1,19 @@
 # AI Data Firewall: Threat Model & Security Specification
 
 > [!IMPORTANT]
-> **Conceptual Security Specification (Step 3)**
+> **Security Specification (v0.1.0 Status)**
 >
 > This document details the threat landscape, trust boundaries, asset inventory, attack surfaces, and risk classifications that govern the design of AI Data Firewall.
 >
-> **These specifications represent architectural targets and security guarantees to be implemented incrementally. They are not fully active in the current pre-alpha release.**
+> **Active in v0.1.0**:
+> - Secret and credential detection in prompts and completions (`SecretDetector`).
+> - Deterministic policy enforcement (ALLOW, WARN, REDACT, BLOCK).
+> - Right-to-left content redaction without offset distortion (`RedactionEngine`).
+> - Anti-open-proxy protections (strict localhost default, fixed upstream target).
+> - Provider adapters (OpenAI, Anthropic, Gemini, Ollama) and offline scanning CLI.
+>
+> **Intentionally Deferred**:
+> - SSE streaming token security inspection, WebSockets, deep multimodal semantic scanning, persistent databases, and hosted cloud telemetry.
 
 ---
 
