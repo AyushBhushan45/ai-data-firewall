@@ -47,9 +47,9 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/ai-data-firewall/ai-data-firewall"
-Documentation = "https://github.com/ai-data-firewall/ai-data-firewall#readme"
-Issues = "https://github.com/ai-data-firewall/ai-data-firewall/issues"
+Homepage = "https://github.com/AyushBhushan45/ai-data-firewall"
+Documentation = "https://github.com/AyushBhushan45/ai-data-firewall#readme"
+Issues = "https://github.com/AyushBhushan45/ai-data-firewall/issues"
 
 [tool.setuptools.packages.find]
 where = ["src"]

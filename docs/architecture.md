@@ -525,11 +525,10 @@ Configuration is specified via a declarative YAML or TOML file:
 
 ### Command-Line Interface (CLI)
 The project exposes a dedicated CLI (`aifirewall`):
-- `aifirewall start`: Launches the local reverse proxy daemon.
-- `aifirewall scan "text"`: Offline CLI scanner to test detectors against arbitrary strings.
-- `aifirewall test`: Runs built-in diagnostic and self-test routines against local rules.
-- `aifirewall config validate`: Checks syntax and rule integrity of configuration files.
-- `aifirewall version`: Displays version and build metadata.
+- `aifirewall start`: Launches the local reverse proxy daemon with configurable upstream, provider, host, port, policy preset, and timeout options.
+- `aifirewall scan "text"`: Offline CLI scanner to test detectors against arbitrary strings, with `--json` and `--policy-preset` options.
+- `aifirewall providers`: Lists all registered provider adapters offline.
+- `aifirewall --version`: Displays the package version.
 
 ---
 
