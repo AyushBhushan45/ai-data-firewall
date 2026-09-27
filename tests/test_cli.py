@@ -283,3 +283,27 @@ class TestCLIStart:
             captured = capsys.readouterr()
             assert "Startup error: Unable to bind" in captured.err
             assert "Traceback" not in captured.err
+
+    def test_start_banner_sanitizes_upstream_credentials(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """Proxy banner scrubs credentials and shows client routing hint."""
+        with patch("aifirewall.cli.FirewallProxy.run", side_effect=KeyboardInterrupt):
+            ret = main(
+                [
+                    "start",
+                    "--upstream",
+                    "http://admin:mysecretpassword@127.0.0.1:11434",
+                    "--provider",
+                    "ollama",
+                ]
+            )
+            assert ret == EXIT_SUCCESS
+            captured = capsys.readouterr()
+            assert "mysecretpassword" not in captured.out
+            assert "admin" not in captured.out
+            assert "Upstream Target : http://[REDACTED]@127.0.0.1:11434" in captured.out
+            assert (
+                "Client Target   : Point SDK base_url to http://127.0.0.1:8080"
+                in captured.out
+            )

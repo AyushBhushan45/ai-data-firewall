@@ -9,7 +9,7 @@ This document establishes the engineering standards, architectural conventions, 
 Because AI Data Firewall is a security tool designed to handle sensitive traffic, contributors must strictly adhere to these 10 principles:
 
 1. **Never hardcode credentials**: Never commit API keys, passwords, tokens, or private keys to source code, documentation, or configuration files.
-2. **Never place realistic keys in tests**: Test fixtures must use synthesized, obviously fake placeholders (e.g., `sk-dummy-1234567890abcdefghijklmnopqrstuvwxyz`).
+2. **Never place realistic keys in tests**: Test fixtures must use synthesized, obviously fake placeholders (e.g., `sk-proj-EXAMPLE_NOT_A_REAL_KEY`).
 3. **Never log sensitive content by default**: Audit loggers, error handlers, and serializers must never write raw prompt strings, model completions, or detected secrets to stdout or disk.
 4. **Never make security decisions silently**: Every block, redaction, or warning must generate a traceable `SecurityEvent` audit record.
 5. **Keep detection and policy strictly decoupled**: Detectors observe and classify (`DetectionResult`); they never make enforcement decisions. The `PolicyEngine` enforces actions (`PolicyDecision`).

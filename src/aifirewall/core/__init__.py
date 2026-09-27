@@ -15,6 +15,7 @@ from aifirewall.core.types import (
     PolicyAction,
     Severity,
 )
+from aifirewall.core.utils import sanitize_url_for_display
 
 __all__ = [
     "AIFirewallError",
@@ -28,4 +29,5 @@ __all__ = [
     "DetectionCategory",
     "PolicyAction",
     "EventType",
+    "sanitize_url_for_display",
 ]

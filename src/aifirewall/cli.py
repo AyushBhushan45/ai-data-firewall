@@ -29,6 +29,7 @@ from aifirewall.config import (
     load_config_file,
     parse_policy_rule_from_dict,
 )
+from aifirewall.core import sanitize_url_for_display
 from aifirewall.core.errors import ConfigurationError
 from aifirewall.core.types import (
     ContentDirection,
@@ -236,6 +237,7 @@ def run_start(args: argparse.Namespace) -> int:
     # Initialize FirewallProxy
     proxy = FirewallProxy(config=proxy_cfg, pipeline=pipeline)
 
+    safe_upstream = sanitize_url_for_display(proxy_cfg.upstream_url)
     provider_label = proxy_cfg.provider or "generic/passthrough"
     rule_count = len(policy_cfg.rules)
     policy_info = f"{rule_count} rule(s) (Default: {policy_cfg.default_action.value})"
@@ -244,10 +246,15 @@ def run_start(args: argparse.Namespace) -> int:
     sys.stdout.write(f"AI Data Firewall v{__version__}\n")
     sys.stdout.write("==================================================\n")
     sys.stdout.write(f"Proxy Address   : http://{proxy_cfg.host}:{proxy_cfg.port}\n")
-    sys.stdout.write(f"Upstream Target : {proxy_cfg.upstream_url}\n")
+    sys.stdout.write(f"Upstream Target : {safe_upstream}\n")
     sys.stdout.write(f"Provider Adapter: {provider_label}\n")
     sys.stdout.write(f"Active Policy   : {policy_info}\n")
-    sys.stdout.write("Health Check    : GET /health\n")
+    sys.stdout.write(
+        f"Client Target   : Point SDK base_url to http://{proxy_cfg.host}:{proxy_cfg.port}\n"
+    )
+    sys.stdout.write(
+        f"Health Check    : GET http://{proxy_cfg.host}:{proxy_cfg.port}/health\n"
+    )
     sys.stdout.write("Status          : Running. Press Ctrl+C to terminate cleanly.\n")
     sys.stdout.write("==================================================\n")
     sys.stdout.flush()

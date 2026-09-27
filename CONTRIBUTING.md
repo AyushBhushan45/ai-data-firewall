@@ -1,90 +1,161 @@
 # Contributing to AI Data Firewall
 
-Thank you for your interest in contributing to AI Data Firewall! We welcome contributions that align with our mission of building a transparent, local-first, provider-agnostic security layer for AI applications.
+Thank you for your interest in contributing to **AI Data Firewall**!
+We welcome contributions that improve code quality, extend provider adapter support, add detectors, or enhance documentation while adhering to our local-first, privacy-guaranteed principles.
 
 ---
 
-## Before Contributing
+## Code of Conduct
 
-1. **Review Documentation**: Read the [README.md](README.md), [Architecture Guide](docs/architecture.md), and [Security Model](docs/security-model.md) to understand project goals and design principles.
-2. **Check Existing Issues**: Search existing GitHub issues and pull requests to ensure the work is not already in progress or discussed.
-3. **Keep It Focused**: Small, cohesive contributions are much easier to review and integrate than monolithic pull requests.
+All contributors are expected to uphold the [Contributor Covenant Code of Conduct](CODE_OF_CONDUCT.md).
 
 ---
 
-## Development Setup
+## Support & Issue Reporting
+
+- **Bug Reports**: Please open a GitHub issue using the [Bug Report Template](.github/ISSUE_TEMPLATE/bug_report.yml). Provide a minimal reproduction using synthetic credentials.
+- **Feature Requests**: Please open a GitHub issue using the [Feature Request Template](.github/ISSUE_TEMPLATE/feature_request.yml). Specify which architectural layer is affected.
+- **Security Vulnerabilities**: **Do NOT open public GitHub issues for security vulnerabilities.** Follow the private disclosure instructions in [SECURITY.md](SECURITY.md).
+
+---
+
+## Architectural Boundaries
+
+Before making changes, understand where each layer lives:
+
+| Layer | Directory | Responsibility |
+| :--- | :--- | :--- |
+| **Detectors** | `src/aifirewall/detectors/` | Scans text strings for sensitive items (secrets, tokens). Implements `Detector` protocol. |
+| **Policy Engine** | `src/aifirewall/policy/` | Evaluates declarative rules (`ALLOW`, `WARN`, `REDACT`, `BLOCK`) against findings. |
+| **Transformation** | `src/aifirewall/transformation/` | Executes modifications on text (e.g. right-to-left span redaction). |
+| **Provider Adapters** | `src/aifirewall/providers/` | Normalizes provider payloads to `NormalizedAIRequest` / `NormalizedAIResponse` and denormalizes back. |
+| **Reverse Proxy** | `src/aifirewall/proxy/` | Ingests HTTP requests, coordinates the security pipeline, and forwards to fixed upstream. |
+| **CLI & Config** | `src/aifirewall/cli.py`, `src/aifirewall/config.py` | Command-line arguments, environment variable precedence, and TOML/JSON parsing. |
+| **Tests** | `tests/` | Offline unit, integration, and security regression tests. |
+
+**Key Rule**: The core detection and policy engines operate exclusively on normalized data structures (`NormalizedMessage`, `ContentLocation`, `DetectionResult`). Never couple detectors or policies directly to provider-specific JSON schemas.
+
+---
+
+## Development Environment Setup
 
 ### 1. Prerequisites
 
 - Python 3.11 or higher
 - Git
 
-### 2. Clone and Setup Environment
+### 2. Setup Virtual Environment
 
 ```bash
 # Clone the repository
 git clone https://github.com/ai-data-firewall/ai-data-firewall.git
 cd ai-data-firewall
 
-# Create a virtual environment
+# Create virtual environment
 python -m venv .venv
 
-# Activate the virtual environment
-# On Linux/macOS:
+# Activate environment:
+# On Linux / macOS:
 source .venv/bin/activate
 # On Windows (PowerShell):
 .venv\Scripts\Activate.ps1
 # On Windows (Command Prompt):
 .venv\Scripts\activate.bat
 
-# Install the package in editable mode with development dependencies
-pip install -e ".[dev]"
-```
-
-### 3. Verify Local Setup
-
-Run the test suite and linter:
-
-```bash
-# Run pytest
-pytest
-
-# Check code style and linting
-ruff check .
-
-# Check code formatting
-ruff format --check .
-
-# Run static type checking
-npx --yes pyright
+# Upgrade pip and install package in editable mode with dev dependencies
+python -m pip install --upgrade pip
+python -m pip install -e ".[dev]"
 ```
 
 ---
 
-## Contribution Expectations
+## Standard Development Workflow
 
-When submitting code or documentation, please keep the following in mind:
+Before submitting a pull request, run the following verification steps:
 
-- **Incremental Progress**: We build features stage-by-stage. Avoid jumping ahead to unapproved components or premature abstractions.
-- **Typed Python**: Write clear, typed Python code adhering to modern standards.
-- **Test Coverage**: Accompany all new logic or bug fixes with clean, deterministic tests. Do not add fake or mocking-only tests for unimplemented features.
-- **Zero Secrets**: Never commit API keys, tokens, real credentials, or sensitive test data to the repository. Use synthesized or sanitized dummy values when required in tests.
-- **Minimal Dependencies**: Do not introduce new dependencies unless they are strictly necessary and discussed beforehand.
-- **Documentation**: Update relevant documentation files in `docs/` or docstrings whenever interfaces or configurations change.
+```bash
+# 1. Run all unit and integration tests (offline, ~6-8s)
+pytest
+
+# 2. Check linting with Ruff
+ruff check .
+
+# 3. Check code formatting with Ruff
+ruff format --check .
+
+# 4. Run static type checking with Pyright
+npx --yes pyright
+
+# 5. Run CLI smoke tests
+aifirewall --version
+aifirewall --help
+aifirewall providers
+aifirewall scan "Deploying key sk-proj-EXAMPLE_NOT_A_REAL_KEY_1234567890"
+```
+
+---
+
+## How-To Guides
+
+### Adding a New Detector
+
+1. Create your detector class in `src/aifirewall/detectors/`:
+   ```python
+   from aifirewall.core.types import DetectionCategory, Severity
+   from aifirewall.detectors.base import Detector, DetectorContext
+   from aifirewall.detectors.models import DetectionResult
+
+
+   class ExampleDetector:
+       """Detects specific token patterns."""
+
+       @property
+       def category(self) -> DetectionCategory:
+           return DetectionCategory.SECRET
+
+       def detect(
+           self, text: str, context: DetectorContext | None = None
+       ) -> list[DetectionResult]:
+           results: list[DetectionResult] = []
+           # Implement pattern or heuristic search
+           # Append DetectionResult with start, end, severity, confidence, rule_id
+           return results
+   ```
+2. Export your detector in `src/aifirewall/detectors/__init__.py`.
+3. Add comprehensive offline unit tests in `tests/test_<name>_detector.py`.
+4. Ensure all tests run offline without network access or real credentials.
+
+### Adding a New Provider Adapter
+
+1. Subclass `ProviderAdapter` in `src/aifirewall/providers/adapters/<name>.py`:
+   - Implement `provider_name` property.
+   - Implement `can_handle_request(method, path, headers, body) -> bool`.
+   - Implement `normalize_request(method, path, headers, body) -> NormalizedAIRequest`.
+   - Implement `normalize_response(status_code, headers, body, request) -> NormalizedAIResponse`.
+   - Implement `apply_redactions_request(body, request, redactions) -> bytes`.
+   - Implement `apply_redactions_response(body, response, redactions) -> bytes`.
+2. Register the adapter in `src/aifirewall/providers/registry.py` inside `create_default_registry()`.
+3. Add unit tests in `tests/test_provider_<name>.py` testing round-trip normalization, non-streaming detection, and redaction.
+
+### Adding a Policy Rule
+
+Policy rules are defined declaratively in TOML or JSON:
+```toml
+[[policy.rules]]
+rule_id = "block-critical-secrets"
+action = "block"
+category = "secret"
+minimum_severity = "critical"
+minimum_confidence = 0.8
+description = "Block any request or response containing high-confidence critical secrets"
+```
 
 ---
 
 ## Pull Request Guidelines
 
-1. **Descriptive Title**: Use clear, conventional commit messages (e.g., `feat: add regex token detector`, `fix: handle empty payload gracefully`).
-2. **Clear Description**: Summarize what changed, why the change was made, and any trade-offs considered.
-3. **Security Considerations**: If your change touches data handling, parsing, or security-sensitive boundaries, explicitly describe the security implications in the PR description.
-4. **CI Passing**: Ensure that `pytest` and `ruff` pass cleanly before requesting a review.
-
----
-
-## Reporting Issues
-
-- **Bug Reports**: Use the [Bug Report template](.github/ISSUE_TEMPLATE/bug_report.yml) and include reproduction steps, expected behavior, actual behavior, and environment details.
-- **Feature Requests**: Use the [Feature Request template](.github/ISSUE_TEMPLATE/feature_request.yml) to outline the proposed enhancement and use case.
-- **Security Vulnerabilities**: For security concerns, do NOT open a public issue. Follow the instructions in [SECURITY.md](SECURITY.md).
+1. **Focused Changes**: Keep pull requests focused on a single issue or feature.
+2. **Deterministic Tests**: Include automated tests covering both success and edge cases.
+3. **No Secrets**: Never include real API keys, bearer tokens, or personal identifiers in code, tests, or documentation. Use `sk-proj-EXAMPLE_NOT_A_REAL_KEY` or similar synthetic tokens.
+4. **No Raw Logging**: Ensure no logging statements log raw request bodies, completions, headers, or detected secret values.
+5. **PR Checklist**: Complete the checklist in `.github/pull_request_template.md`.

@@ -1,257 +1,315 @@
 # AI Data Firewall
 
-An open-source, local-first security layer for AI applications.
+[![Python Version](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue.svg)](pyproject.toml)
+[![License](https://img.shields.io/badge/license-Apache--2.0-green.svg)](LICENSE)
+[![Release Status](https://img.shields.io/badge/status-v0.1.0%20pre--alpha-orange.svg)](docs/release-0.1.md)
+[![Tests Status](https://img.shields.io/badge/tests-offline%20verified-brightgreen.svg)](tests/)
+
+AI Data Firewall is an open-source, local-first security gateway for AI applications. It inspects AI requests and responses for security-sensitive content and applies configurable policies such as allow, warn, redact, or block.
 
 ---
 
-## Project Status
+## What It Does
 
-> [!NOTE]
-> **Status: v0.1.0 Pre-Alpha Release (CLI + End-to-End Hardening Implemented)**
->
-> AI Data Firewall provides a local HTTP reverse proxy and offline CLI inspection tool. It intercepts AI requests and responses, normalizes provider-specific payloads into a unified domain model, detects sensitive credentials, and enforces declarative policies (allow, warn, redact, block).
->
-> **Honest Pre-Alpha Boundaries**:
-> - Supported providers: OpenAI, Anthropic, Gemini, Ollama (non-streaming).
-> - Streaming tokens (`text/event-stream` / SSE), WebSockets, deep multimodal semantic scanning, persistent databases, and hosted cloud deployments are **intentionally deferred**.
-> - Do not use as a public internet-facing gateway. Designed for local developer environments or single-container sidecar deployments.
+AI Data Firewall acts as a local transparent intermediary between your application and AI inference providers (such as OpenAI, Anthropic, Google Gemini, or local Ollama instances):
+- **Inspects Outgoing Prompts**: Detects API keys, private tokens, and credentials accidentally embedded in user prompts or RAG context before they reach upstream providers.
+- **Inspects Ingoing Completions**: Analyzes model responses to prevent sensitive credentials or secrets from being returned to clients.
+- **Enforces Deterministic Policies**: Evaluates declarative rules (`ALLOW`, `WARN`, `REDACT`, `BLOCK`) with clean conflict resolution.
+- **Performs In-Place Redaction**: Masks sensitive content using right-to-left span masking without corrupting surrounding text or JSON structures.
+- **Provides Offline CLI Inspection**: Scans strings or files directly from the command line without running a background server.
 
 ---
 
-## Why This Project Exists
+## Why It Exists
 
-Modern AI-driven applications routinely process sensitive information:
+Modern AI applications increasingly handle sensitive organizational data:
 - User prompts and conversation histories.
 - Context documents retrieved from internal knowledge bases (RAG).
 - API keys, credentials, and access tokens accidentally pasted into prompts.
-- Unsanitized model completions that may regurgitate credentials or sensitive data.
+- Model completions that may inadvertently reproduce training secrets or leaked keys.
 
-Transmitting raw, uninspected content directly between applications and remote AI providers creates substantial security and compliance risks.
+Directly transmitting raw, uninspected content between client applications and external AI providers creates data leakage and compliance vulnerabilities.
 
-AI Data Firewall acts as a local intermediary between your application and upstream AI providers. It inspects incoming prompts and outgoing completions, evaluates deterministic policies, and prevents credential exfiltration or unsafe outputs.
+AI Data Firewall provides a lightweight, local-first inspection boundary that gives developers visibility and control over what leaves and enters their environment—without requiring external cloud security brokers or persistent databases.
 
 ---
 
-## Architecture Pipeline
+## Who Is This For?
+
+- **AI Application Developers**: Teams building agents, RAG pipelines, or LLM-powered features who need a local safety net against accidental credential exfiltration.
+- **Local-First Engineers**: Developers seeking a local in-process or sidecar data privacy layer between their application and remote AI providers.
+- **Security Researchers & Builders**: Engineers experimenting with AI security, guardrail architectures, and policy enforcement.
+- **Open-Source Contributors**: Developers interested in adding new secret patterns, PII detectors, and provider normalization adapters.
+
+---
+
+## Architecture
+
+The firewall decouples transport, provider schema normalization, detection, and policy enforcement into independent layers:
 
 ```text
-       +-----------------------+
-       |    AI APPLICATION     |
-       +-----------------------+
-                   |
-                   | 1. Outgoing AI Request (HTTP/SDK)
-                   v
-+-------------------------------------------------------------+
-|                      AI DATA FIREWALL                       |
-|                                                             |
-|  [ Request Intake & Routing ]                               |
-|            |                                                |
-|            v                                                |
-|  [ Provider Normalization ] -> [ Content Extraction ]       |
-|                                         |                   |
-|                                         v                   |
-|                                [ Detection Engine ]         |
-|                                (SecretDetector)             |
-|                                         |                   |
-|                                         v                   |
-|                                [ Policy Engine ]            |
-|                                         |                   |
-|                   +---------------------+-----------------+ |
-|                   |                                       | |
-|                   v                                       v |
-|               [ BLOCK ]                              [ CONTINUE ]
-|                   |                                       | |
-|                   v                                       v |
-|          (Safe 403 Error)                           [ Redact ]      |
-|                                                     (Right-to-Left) |
-|                                                           | |
-|                                                           v |
-|                                                    [ Forwarding ]
-+-----------------------------------------------------------|-+
-                                                            |
-                                                            | 2. Allowed / Sanitized Request
-                                                            v
-                                               +-------------------------+
-                                               |   AI MODEL / PROVIDER   |
-                                               +-------------------------+
-                                                            |
-                                                            | 3. Model Completion
-                                                            v
-+-----------------------------------------------------------|-+
-|  [ Response Intake ] <------------------------------------+ |
-|            |                                                |
-|            v                                                |
-|  [ Response Normalization ] -> [ Content Extraction ]       |
-|                                         |                   |
-|                                         v                   |
-|                                [ Detection Engine ]         |
-|                                (Secrets / Leakage)          |
-|                                         |                   |
-|                                         v                   |
-|                                [ Policy Engine ]            |
-|                                         |                   |
-|                   +---------------------+-----------------+ |
-|                   |                                       | |
-|                   v                                       v |
-|               [ BLOCK ]                               [ ALLOW ]
-|                   |                                       | |
-|                   v                                       v |
-|          (Safe 502 Error)                          [ Redact ]       |
-|                                                    (Output Masking) |
-|                                                           | |
-|                                                           v |
-|                                                  [ Client Delivery ]
-+-----------------------------------------------------------|-+
-                                                            |
-                                                            | 4. Sanitized Completion
-                                                            v
-                                               +-----------------------+
-                                               |    AI APPLICATION     |
-                                               +-----------------------+
+    AI Application
+          │
+          │ 1. Outgoing Request
+          ▼
+┌────────────────────────────────────────────────────────┐
+│                   AI DATA FIREWALL                     │
+│                                                        │
+│  [ HTTP Firewall Proxy ]                               │
+│           │                                            │
+│           ▼                                            │
+│  [ Provider Adapter ]                                  │
+│           │                                            │
+│           ▼                                            │
+│  [ Normalized AI Model ]                               │
+│           │                                            │
+│           ▼                                            │
+│  [ Detection Engine (SecretDetector) ]                 │
+│           │                                            │
+│           ▼                                            │
+│  [ Policy Engine ]                                     │
+│           │                                            │
+│     ┌─────┴───────────────┐                            │
+│     ▼                     ▼                            │
+│  [ BLOCK ]      [ REDACT / ALLOW ]                     │
+│  (Safe 403)               │                            │
+│                           ▼                            │
+│                 [ Denormalize Request ]                │
+│                           │                            │
+└───────────────────────────┼────────────────────────────┘
+                            │
+                            │ 2. Sanitized Request
+                            ▼
+                  [ Upstream AI Provider ]
+                            │
+                            │ 3. Model Completion
+                            ▼
+┌────────────────────────────────────────────────────────┐
+│                   AI DATA FIREWALL                     │
+│                                                        │
+│  [ Response Intake ]                                   │
+│           │                                            │
+│           ▼                                            │
+│  [ Normalization ]                                     │
+│           │                                            │
+│           ▼                                            │
+│  [ Detection Engine ]                                  │
+│           │                                            │
+│           ▼                                            │
+│  [ Policy Engine ]                                     │
+│           │                                            │
+│     ┌─────┴───────────────┐                            │
+│     ▼                     ▼                            │
+│  [ BLOCK ]      [ REDACT / ALLOW ]                     │
+│  (Safe 502)               │                            │
+│                           ▼                            │
+│                 [ Client Delivery ]                    │
+└───────────────────────────┼────────────────────────────┘
+                            │
+                            │ 4. Sanitized Completion
+                            ▼
+                      AI Application
 ```
 
----
-
-## Core Design Principles
-
-- **Local-First**: Runs directly on `127.0.0.1` or as a container sidecar. Zero mandatory external cloud services.
-- **Privacy-Guaranteed**: Raw prompts, completions, and secrets are NEVER logged, serialized, or emitted to telemetry.
-- **Zero-Database**: Operates entirely in-memory with zero persistent database dependencies (no SQLite, PostgreSQL, or Redis).
-- **Zero-Telemetry**: No tracking SDKs, hosted metrics, or OpenTelemetry collectors.
-- **Provider-Agnostic Core**: The security engine (detectors, policy engine, redaction) operates strictly on normalized representations, completely independent of provider schemas.
+For comprehensive technical specifications, see [docs/architecture.md](docs/architecture.md).
 
 ---
 
-## Supported Provider Adapters
+## Capability Matrix
 
-| Provider | Identifier | API Format | Non-Streaming | Request Redaction | Response Redaction | Streaming |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **OpenAI** | `openai` | `/v1/chat/completions` | Supported | Supported | Supported | Deferred (Fails Safe) |
-| **Anthropic** | `anthropic` | `/v1/messages` | Supported | Supported | Supported | Deferred (Fails Safe) |
-| **Google Gemini** | `gemini` | `/v1beta/models/...:generateContent` | Supported | Supported | Supported | Deferred (Fails Safe) |
-| **Ollama** | `ollama` | `/api/chat` | Supported | Supported | Supported | Deferred (Fails Safe) |
+| Capability | Status | Notes |
+| :--- | :--- | :--- |
+| **Secret Detection** | Supported | Pattern matching and Shannon entropy for API keys, tokens, and private credentials |
+| **Policy Engine** | Supported | Declarative rules with deterministic precedence (`ALLOW` < `WARN` < `REDACT` < `BLOCK`) |
+| **Redaction** | Supported | Right-to-left span masking preserving surrounding text and string indices |
+| **Local HTTP Proxy** | Supported | Reverse proxy with strict localhost binding (`127.0.0.1:8080`) and fixed upstream |
+| **Request Inspection** | Supported | Inspects inbound prompts, system instructions, and user messages |
+| **Response Inspection** | Supported | Inspects outbound model completions and choice messages |
+| **OpenAI-Compatible Adapter** | Supported | Schema normalization for `/v1/chat/completions` and `/v1/embeddings` |
+| **Anthropic Adapter** | Supported | Schema normalization for Messages API (`/v1/messages`) |
+| **Google Gemini Adapter** | Supported | Schema normalization for `generateContent` format |
+| **Ollama Adapter** | Supported | Schema normalization for local Ollama `/api/chat` format |
+| **CLI & Offline Tools** | Supported | `start`, `scan`, `providers`, and `--version` subcommands |
+| **SSE / Streaming Inspection** | Not yet supported | Deferred; streaming requests (`stream: true`) fail safely with HTTP 400 |
+| **WebSocket Inspection** | Not yet supported | Deferred |
+| **Advanced Multimodal Scanning** | Not yet supported | Binary image/audio payloads are passed through intact without deep semantic analysis |
 
 ---
 
-## Installation
+## Supported Provider Payload Families
 
-### Standard Installation
+The firewall supports normalization adapters for the following provider schema families:
+
+- **OpenAI-compatible**: Targets `/v1/chat/completions` and `/v1/embeddings` payloads.
+- **Anthropic**: Targets `/v1/messages` payload structures.
+- **Google Gemini**: Targets `generateContent` request and candidate structures.
+- **Ollama**: Targets local `/api/chat` payload structures.
+
+> [!NOTE]
+> Provider APIs evolve over time. AI Data Firewall adapters target the documented JSON schema structures for each provider family. Support does not imply endorsement by or official partnership with these providers.
+
+---
+
+## Quick Start
+
+### 1. Installation
+
+Install from source:
+
 ```bash
+# Standard installation
 pip install .
-```
 
-### Editable Development Installation
-```bash
+# Or for development with test dependencies
 pip install -e ".[dev]"
 ```
 
-Verify installation:
+Verify the installation:
+
 ```bash
 aifirewall --version
-aifirewall --help
 aifirewall providers
+```
+
+### 2. Offline Text Scanning
+
+Run an offline security scan on a string containing a synthetic credential:
+
+```bash
+aifirewall scan "Deploying service with key sk-proj-EXAMPLE_NOT_A_REAL_KEY_1234567890"
+```
+
+Output:
+```text
+==================================================
+AI Data Firewall -- Scan Report
+==================================================
+Detections : 1
+Action     : redact
+Redacted   : yes
+Findings   :
+  1. Category: secret | Severity: high | Confidence: 0.95 | Detector: secret-detector
+--------------------------------------------------
+Sanitized Content:
+Deploying service with key [REDACTED_SECRET]
+==================================================
+```
+
+Emit machine-readable, privacy-safe JSON:
+
+```bash
+aifirewall scan "My token is ghp_EXAMPLE_NOT_A_REAL_TOKEN_123456789012" --json
+```
+
+Output:
+```json
+{
+  "action": "redact",
+  "detection_count": 1,
+  "redacted": true,
+  "findings": [
+    {
+      "category": "secret",
+      "severity": "high",
+      "confidence": 0.95,
+      "detector_name": "secret-detector",
+      "rule_id": "preset-redact-secrets"
+    }
+  ],
+  "transformed_content": "My token is [REDACTED_SECRET]"
+}
+```
+
+Enforce blocking policy (exits with code 3 on match):
+
+```bash
+aifirewall scan "Key: sk-proj-EXAMPLE_NOT_A_REAL_KEY_1234567890" --policy-preset block-secrets
 ```
 
 ---
 
-## Quick Start & CLI Usage
+## Local Proxy Example
 
-### 1. Offline Text & File Scanning
-Test the detection and policy pipeline offline without running the proxy:
-
-```bash
-# Scan a string (redacts detected secrets by default)
-aifirewall scan "Deploying cluster with key sk-proj-123456789012345678901234567890123456789012345678"
-
-# Machine-readable, privacy-safe JSON output
-aifirewall scan "My token is ghp_123456789012345678901234567890123456" --json
-
-# Enforce blocking policy (exits with code 3 on match)
-aifirewall scan "Secret text" --policy-preset block-secrets
-
-# Scan text from a file
-aifirewall scan -f prompt.txt
-```
-
-### 2. Start the Local Firewall Proxy
-Launch the local reverse proxy forwarding to an upstream AI provider:
+Start the local reverse proxy pointing to your local Ollama instance or an upstream inference endpoint:
 
 ```bash
-# Point to a local Ollama instance (default: http://127.0.0.1:8080)
 aifirewall start --upstream http://127.0.0.1:11434 --provider ollama
-
-# Point to OpenAI with secret redaction
-aifirewall start --upstream https://api.openai.com --provider openai --policy-preset redact-secrets
-
-# Custom host, port, and timeouts
-aifirewall start --upstream http://127.0.0.1:11434 --host 127.0.0.1 --port 9000 --timeout 30.0
 ```
 
-### 3. Route Your Application Through the Firewall
-Configure your AI client or SDK to use the local proxy address:
+Startup banner:
+```text
+==================================================
+AI Data Firewall v0.1.0
+==================================================
+Proxy Address   : http://127.0.0.1:8080
+Upstream Target : http://127.0.0.1:11434
+Provider Adapter: ollama
+Active Policy   : 1 rule(s) (Default: ALLOW)
+Client Target   : Point SDK base_url to http://127.0.0.1:8080
+Health Check    : GET http://127.0.0.1:8080/health
+Status          : Running. Press Ctrl+C to terminate cleanly.
+==================================================
+```
+
+### Routing Application Traffic Through the Firewall
+
+Direct your application's SDK to `http://127.0.0.1:8080`. The proxy intercepts the request, inspects and sanitizes the content, and forwards it to the configured upstream target:
 
 ```python
 from openai import OpenAI
 
-# Direct client traffic to the local firewall proxy
+# Direct traffic to the local firewall proxy
 client = OpenAI(
     base_url="http://127.0.0.1:8080/v1",
-    api_key="your-actual-api-key",  # Forwarded safely upstream; never logged
+    api_key="sk-proj-EXAMPLE_NOT_A_REAL_KEY",  # Forwarded safely upstream; never logged
 )
 
-# Outgoing prompt is inspected; response completion is sanitized
+# Prompts are inspected; completions are sanitized
 response = client.chat.completions.create(
-    model="gpt-4o",
-    messages=[{"role": "user", "content": "Hello!"}],
+    model="llama3",
+    messages=[{"role": "user", "content": "Hello, world!"}],
 )
 print(response.choices[0].message.content)
 ```
 
 ---
 
-## Configuration Architecture
+## Security Model
 
-Configuration uses deterministic precedence:
-1. **CLI arguments** (`--upstream`, `--provider`, `--port`, `--policy-preset`)
-2. **Environment variables** (`AIFIREWALL_UPSTREAM`, `AIFIREWALL_PROVIDER`, `AIFIREWALL_PORT`, `AIFIREWALL_CONFIG`)
-3. **Configuration file** (`--config firewall.toml` or `firewall.json`)
-4. **Safe defaults** (Host: `127.0.0.1`, Port: `8080`, Action: `ALLOW`)
+AI Data Firewall strictly separates pipeline responsibilities:
+$$\text{Detection} \longrightarrow \text{Policy} \longrightarrow \text{Transformation}$$
 
-Example configuration files are provided in [`examples/firewall.toml`](examples/firewall.toml) and [`examples/firewall.json`](examples/firewall.json).
+- **Detection**: Detectors find findings without deciding what action to take.
+- **Policy**: The policy engine evaluates findings against rules to determine the action (`ALLOW`, `WARN`, `REDACT`, `BLOCK`).
+- **Transformation**: Transformation engines (such as `RedactionEngine`) execute the policy decision without altering business logic.
 
-### Built-in Policy Presets
-- `redact-secrets`: Masks detected high-confidence secrets with category-aware placeholders (e.g. `[REDACTED_SECRET]`).
-- `block-secrets`: Drops requests or responses containing detected secrets and returns safe structured error payloads.
-- `warn-secrets`: Permits traffic while recording privacy-preserving audit events.
-- `allow-all`: Evaluates default allow policy.
+### Privacy Guarantees
+- **Zero Raw Secret Output**: Detected secret values and authorization headers are never logged, echoed in console outputs, or serialized to JSON.
+- **Anti-Open-Proxy**: The proxy binds strictly to `127.0.0.1` by default and enforces a fixed upstream destination configured at startup. Inbound requests cannot specify or override the destination host.
+- **Upstream URL Sanitization**: Any credentials embedded in upstream URLs (such as HTTP Basic Auth or sensitive query tokens) are automatically redacted in all logs and console displays.
 
----
-
-## Security & Privacy Guarantees
-
-- **No Open-Proxy Risk**: The proxy binds to `127.0.0.1` by default and enforces a fixed upstream URL configured at startup. Client requests cannot override or redirect the destination.
-- **Credential Protection**: `Authorization` and credential headers are forwarded upstream when needed but are strictly excluded from proxy logs, CLI output, error payloads, and audit events.
-- **Fail-Safe Streaming**: Requests requesting streaming (`stream: true`) are safely rejected with HTTP 400 until streaming token inspection is implemented.
-- **Input Boundaries**: Enforces strict request body (5MB default) and response body (10MB default) limits to prevent memory exhaustion.
+For details on trust boundaries and threat modeling, see [docs/security-model.md](docs/security-model.md).
 
 ---
 
-## Known Limitations
+## Limitations
+
+As an early-stage project (`v0.1.0 pre-alpha`), the following limitations currently apply:
 
 - **Streaming / SSE**: Server-Sent Events (`stream: true`) are not yet inspected. Requests with streaming enabled fail safely with HTTP 400.
-- **WebSockets**: Not supported.
-- **Multimodal Scanning**: Image/audio binaries are passed through intact; deep semantic scanning is deferred.
-- **Local Deployment Scope**: Designed for localhost or sidecar deployment, not as a shared multi-tenant public proxy.
+- **WebSockets**: WebSocket inspection is not supported.
+- **Multimodal Scanning**: Image, audio, and binary attachments pass through intact; deep semantic scanning is deferred.
+- **Payload Schema Variants**: Some non-standard or experimental provider payload variants may be unsupported and fail safe.
+- **Local-First Scope**: Designed for localhost or container sidecar execution, not as a shared multi-tenant public proxy.
+- **Not a Universal Secret Scanner**: Focuses on high-risk credential patterns in AI traffic; should be used as part of a defense-in-depth strategy.
 
 ---
 
-## Documentation
+## Project Status
 
-- [Release Notes (v0.1.0)](docs/release-0.1.md): Summary of v0.1.0 capabilities and validation status.
-- [System Architecture](docs/architecture.md): Complete technical design, module responsibilities, and normalization pipelines.
-- [Security Threat Model](docs/security-model.md): Assets, trust boundaries, attack vectors, and privacy guarantees.
-- [Development Guide](docs/development.md): Development setup, testing workflows, and extension guides.
-- [Changelog](CHANGELOG.md): Historical record of changes across build milestones.
+**Status: v0.1.0 / early-stage (Pre-Alpha)**
+
+AI Data Firewall is under active development. The core security pipeline, provider adapters, CLI, and local reverse proxy are fully functional and backed by offline automated tests. However, this is an early-stage release and has not undergone formal third-party operational security audits.
 
 ---
 
@@ -262,21 +320,21 @@ Example configuration files are provided in [`examples/firewall.toml`](examples/
 git clone https://github.com/ai-data-firewall/ai-data-firewall.git
 cd ai-data-firewall
 
-# Create and activate a virtual environment
+# Create and activate virtual environment
 python -m venv .venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\Activate.ps1
 
 # Install in editable mode with development dependencies
 pip install -e ".[dev]"
 
-# Run test suite (416 offline tests)
+# Run offline automated test suite
 pytest
 
-# Run linter & formatter checks
+# Run linter and formatter checks
 ruff check .
 ruff format --check .
 
-# Run static type checker
+# Run static type checking
 npx --yes pyright
 ```
 
@@ -284,11 +342,15 @@ npx --yes pyright
 
 ## Contributing
 
-Please review [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines, architectural boundaries, and testing requirements.
+We welcome contributions! Please review [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines, architectural boundaries, and instructions on adding new detectors or provider adapters.
 
-## Security
+---
 
-Please review [SECURITY.md](SECURITY.md) for vulnerability reporting procedures and our responsible disclosure process.
+## Security Reporting
+
+Please review [SECURITY.md](SECURITY.md) for vulnerability disclosure procedures. **Do not open public GitHub issues for security vulnerabilities.**
+
+---
 
 ## License
 

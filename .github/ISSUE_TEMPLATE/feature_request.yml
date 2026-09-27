@@ -1,40 +1,63 @@
 name: Feature Request
-description: Suggest an idea or proposal for AI Data Firewall
+description: Propose an enhancement, new detector, or provider adapter for AI Data Firewall
 title: "[Feature]: "
 labels: ["enhancement"]
 body:
   - type: markdown
     attributes:
       value: |
-        Thank you for suggesting an improvement! Please do NOT include real API keys, passwords, personal identifiable information (PII), or confidential data in this request.
+        ### 💡 Proposing Enhancements
+        Thank you for helping improve AI Data Firewall!
+        Please describe your proposal clearly and specify which architectural layer is affected.
+        **Do NOT include real credentials, private tokens, or proprietary data.**
+
+  - type: checkboxes
+    id: affected-layer
+    attributes:
+      label: Affected Architectural Layer
+      description: Select all system layers that this feature request touches.
+      options:
+        - label: "Detector (e.g., new secret regex/entropy pattern, PII, prompt-injection)"
+        - label: "Policy Engine (e.g., evaluation logic, rule syntax, conflict resolution)"
+        - label: "Transformation / Redaction (e.g., span masking, token replacements)"
+        - label: "Provider Adapter (e.g., support for a new provider API schema)"
+        - label: "Local HTTP Reverse Proxy (e.g., transport, headers, timeouts, error responses)"
+        - label: "CLI & Configuration (e.g., subcommands, flags, TOML/JSON parser)"
+        - label: "Documentation & Examples"
+    validations:
+      required: true
+
   - type: textarea
     id: problem
     attributes:
-      label: Problem Statement
-      description: Is your feature request related to a specific problem or use case?
-      placeholder: "I encounter an issue when trying to..."
+      label: Problem Statement / Use Case
+      description: What specific problem or use case are you trying to solve?
+      placeholder: "When developing an AI application that uses..."
     validations:
       required: true
+
   - type: textarea
     id: solution
     attributes:
       label: Proposed Solution
-      description: A clear and concise description of what you want to happen.
-      placeholder: "Describe how the capability or feature should work..."
+      description: A clear and concise description of how the feature or enhancement should work.
+      placeholder: "The firewall should support..."
     validations:
       required: true
+
   - type: textarea
     id: alternatives
     attributes:
-      label: Alternative Approaches
-      description: Describe any alternative solutions or workarounds you've considered.
-      placeholder: "Alternative approaches considered..."
+      label: Alternatives Considered
+      description: Any alternative implementations or workarounds you considered.
+      placeholder: "An alternative approach would be to..."
     validations:
       required: false
+
   - type: textarea
-    id: context
+    id: additional-context
     attributes:
       label: Additional Context
-      description: Add any other context, diagrams, or references about the feature request here.
+      description: Add any references, schema documentation, or examples here.
     validations:
       required: false

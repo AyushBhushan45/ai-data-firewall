@@ -430,3 +430,18 @@ def test_privacy_non_exposure_in_all_representations(
     assert not hasattr(finding, "raw_secret")
     assert not hasattr(finding, "detected_value")
     assert not hasattr(finding, "secret_value")
+
+
+def test_structured_token_with_synthetic_marker_detected(
+    detector: SecretDetector, context: DetectorContext
+) -> None:
+    """Verify structured tokens with synthetic tutorial markers are detected."""
+    sk_key = "sk-proj-EXAMPLE_NOT_A_REAL_KEY_1234567890"
+    gh_token = "ghp_EXAMPLE_NOT_A_REAL_TOKEN_123456789012"
+    text = f"Using {sk_key} and {gh_token}"
+    findings = detector.detect(text, context)
+
+    assert len(findings) == 2
+    types = {f.description for f in findings}
+    assert any("OpenAI API key" in d for d in types)
+    assert any("GitHub access token" in d for d in types)

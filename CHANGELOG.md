@@ -16,8 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Console script entry point `aifirewall` registered via `pyproject.toml`.
 - **Configuration Management**:
   - Deterministic precedence: CLI arguments > Environment variables > Configuration file (.toml/.json) > Defaults.
-  - Standard library TOML (`tomllib`) and JSON parsing with zero new dependencies.
-  - Safe policy presets (`redact-secrets`, `block-secrets`, `warn-secrets`, `allow-all`) and custom rule configuration.
+  - Standard library TOML (`tomllib`) and JSON parsing with zero external dependencies.
+  - Safe policy presets (`redact-secrets`, `block-secrets`, `warn-secrets`, `allow-all`) and custom declarative rule configuration.
 - **Provider Adapters & Normalization**:
   - OpenAI adapter (`OpenAIAdapter`) for chat completions and embeddings.
   - Anthropic adapter (`AnthropicAdapter`) for Messages API format.
@@ -25,20 +25,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Ollama adapter (`OllamaAdapter`) for local chat API format.
   - Round-trip denormalization preserving non-text parameters intact.
 - **Core Detection & Policies**:
-  - `SecretDetector` with entropy and pattern recognition for API keys, tokens, and private credentials.
+  - `SecretDetector` with entropy calculation and pattern recognition for API keys, tokens, and private credentials.
   - `PolicyEngine` with deterministic conflict resolution (ALLOW < WARN < REDACT < BLOCK).
   - `RedactionEngine` providing right-to-left span masking without offset distortion.
 - **Local Reverse Proxy**:
   - FastAPI + Uvicorn reverse proxy with anti-open-proxy protections and fixed upstream targets.
   - Strict localhost binding by default (`127.0.0.1:8080`).
   - Request and response body size limits, upstream timeouts, and privacy-safe error handling.
-- **Security & Privacy Hardening**:
-  - Zero raw secrets or credentials printed, logged, or serialized.
-  - `Authorization` headers forwarded upstream but never logged or exposed in audit events.
-  - Completely offline automated test suite (416 tests passing deterministically).
 
-### Limitations & Intentionally Deferred
-- SSE streaming token inspection (`text/event-stream`) is deferred (fails safe with clean error).
+### Security
+- Zero raw secrets or credentials printed, logged, or serialized across all CLI and proxy operations.
+- `Authorization` headers forwarded upstream without logging or emission to audit events.
+- Centralized URL sanitization (`sanitize_url_for_display`) scrubbing userinfo credentials and sensitive query parameters from console outputs and logs.
+- Automated tests run 100% offline with zero dependencies on live provider APIs or real credentials.
+
+### Known Limitations
+- SSE streaming token inspection (`text/event-stream`) is deferred (fails safe with clean HTTP 400).
 - WebSockets are not supported.
 - Multimodal binary/image semantic inspection is limited to non-text passthrough.
 - Zero mandatory databases, external telemetry, or cloud dependencies.

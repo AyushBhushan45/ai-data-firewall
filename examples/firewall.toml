@@ -14,11 +14,10 @@ host = "127.0.0.1"
 port = 8080
 
 # Target upstream AI server URL (REQUIRED)
-# Examples:
-#   Ollama local:   "http://127.0.0.1:11434"
-#   OpenAI:         "https://api.openai.com"
-#   Anthropic:      "https://api.anthropic.com"
-#   Gemini:         "https://generativelanguage.googleapis.com"
+# Safe examples:
+#   Local Ollama:        "http://127.0.0.1:11434"
+#   Test endpoint:       "https://example.invalid"
+#   OpenAI-compatible:   "https://example.invalid/v1"
 upstream_url = "http://127.0.0.1:11434"
 
 # Provider adapter name: "openai", "anthropic", "gemini", or "ollama"

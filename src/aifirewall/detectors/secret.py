@@ -60,6 +60,12 @@ def _is_placeholder(val: str) -> bool:
     stripped = cleaned.strip("<>{}[]()\"'")
     if stripped in _COMMON_PLACEHOLDERS:
         return True
+    # Dedicated structured tokens are not suppressed merely because test or
+    # tutorial examples use synthetic markers like 'example' or 'sample'.
+    if stripped.startswith(
+        ("sk-", "ghp_", "gho_", "ghu_", "ghs_", "ghr_", "aiza", "akia", "asia", "xox")
+    ):
+        return False
     if "your_" in stripped or "replace_" in stripped or "example_" in stripped:
         return True
     if "your-" in stripped or "replace-" in stripped or "example-" in stripped:

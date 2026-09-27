@@ -1,66 +1,111 @@
 name: Bug Report
-description: Create a report to help us reproduce and fix a bug
+description: Report a reproducible bug in AI Data Firewall
 title: "[Bug]: "
 labels: ["bug"]
 body:
   - type: markdown
     attributes:
       value: |
-        Thank you for reporting an issue! Please do NOT include real API keys, passwords, personal identifiable information (PII), or private data in this report.
-  - type: textarea
-    id: description
+        ### ⚠️ Security & Privacy Warning
+        **Do NOT include real API keys, passwords, bearer tokens, private credentials, or prompts containing sensitive personal information in this report.**
+        Use synthetic placeholders (e.g., `sk-proj-EXAMPLE_NOT_A_REAL_KEY`) for all reproductions.
+        If you are reporting a security vulnerability, please see [SECURITY.md](https://github.com/ai-data-firewall/ai-data-firewall/blob/main/SECURITY.md) instead of creating a public issue.
+
+  - type: input
+    id: project-version
     attributes:
-      label: Bug Description
-      description: A clear and concise description of what the bug is.
-      placeholder: Describe the problem...
+      label: AI Data Firewall Version
+      description: What version of `aifirewall` are you running? (Run `aifirewall --version`)
+      placeholder: "0.1.0"
     validations:
       required: true
-  - type: textarea
-    id: reproduction
-    attributes:
-      label: Steps to Reproduce
-      description: Steps to reproduce the behavior.
-      placeholder: |
-        1. Install package version '...'
-        2. Execute command '...'
-        3. See error '...'
-    validations:
-      required: true
-  - type: textarea
-    id: expected
-    attributes:
-      label: Expected Behavior
-      description: A clear and concise description of what you expected to happen.
-    validations:
-      required: true
-  - type: textarea
-    id: actual
-    attributes:
-      label: Actual Behavior
-      description: What actually occurred, including relevant non-sensitive stack traces or error messages.
-    validations:
-      required: true
+
   - type: input
     id: python-version
     attributes:
       label: Python Version
-      description: Which Python version are you using?
+      description: Which Python version are you using? (Run `python --version`)
       placeholder: "e.g., Python 3.11.9, 3.12.3"
     validations:
       required: true
-  - type: input
-    id: project-version
-    attributes:
-      label: Package Version
-      description: Which version of ai-data-firewall are you running?
-      placeholder: "e.g., 0.1.0"
-    validations:
-      required: true
+
   - type: input
     id: os-environment
     attributes:
       label: Operating System / Environment
-      description: OS version and environment details.
-      placeholder: "e.g., Ubuntu 22.04 LTS, macOS Sonoma, Windows 11"
+      description: OS version and execution environment details.
+      placeholder: "e.g., Ubuntu 22.04 LTS, macOS Sonoma 14.5, Windows 11"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: provider-adapter
+    attributes:
+      label: Provider Adapter
+      description: Which provider adapter was in use when the issue occurred?
+      options:
+        - "openai"
+        - "anthropic"
+        - "gemini"
+        - "ollama"
+        - "None / Offline CLI scan"
+        - "Custom / Other"
+    validations:
+      required: true
+
+  - type: input
+    id: exact-command
+    attributes:
+      label: Exact Command Executed
+      description: The exact CLI command or configuration used (with credentials sanitized).
+      placeholder: "aifirewall start --upstream http://127.0.0.1:11434 --provider ollama"
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: A clear and concise description of the bug.
+      placeholder: "Describe what went wrong..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal Reproduction Steps
+      description: Minimal steps to reproduce the issue using synthetic values.
+      placeholder: |
+        1. Start proxy with command '...'
+        2. Send synthetic request: '...'
+        3. Observe error: '...'
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What you expected to occur.
+      placeholder: "Expected the proxy to redact the token and forward the request..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+      description: What actually occurred.
+      placeholder: "Received an unexpected error code or malformed output..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Sanitized Logs / Traces
+      description: Relevant logs with all sensitive tokens, headers, and secret payloads removed.
+      render: shell
     validations:
       required: false

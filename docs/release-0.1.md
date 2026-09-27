@@ -50,13 +50,13 @@ aifirewall providers
 ### 1. Test Scanning Offline
 ```bash
 # Offline scan with default secret redaction
-aifirewall scan "Deploying service with key sk-proj-123456789012345678901234567890123456789012345678"
+aifirewall scan "Deploying service with key sk-proj-EXAMPLE_NOT_A_REAL_KEY_1234567890"
 
 # Machine-readable JSON output
-aifirewall scan "My password is secret" --json
+aifirewall scan "My token is ghp_EXAMPLE_NOT_A_REAL_TOKEN_123456" --json
 
 # Enforce blocking policy
-aifirewall scan "My key is sk-proj-123456789012345678901234567890123456789012345678" --policy-preset block-secrets
+aifirewall scan "Key: sk-proj-EXAMPLE_NOT_A_REAL_KEY_1234567890" --policy-preset block-secrets
 ```
 
 ### 2. Start the Local Firewall Proxy
@@ -64,8 +64,8 @@ aifirewall scan "My key is sk-proj-123456789012345678901234567890123456789012345
 # Start proxy pointing to a local Ollama instance
 aifirewall start --upstream http://127.0.0.1:11434 --provider ollama
 
-# Or start proxy pointing to OpenAI
-aifirewall start --upstream https://api.openai.com --provider openai --policy-preset redact-secrets
+# Or start proxy pointing to an upstream provider endpoint
+aifirewall start --upstream https://example.invalid --provider openai --policy-preset redact-secrets
 ```
 
 ### 3. Route Your Application Through the Firewall
@@ -76,7 +76,7 @@ from openai import OpenAI
 # Direct traffic through the local firewall
 client = OpenAI(
     base_url="http://127.0.0.1:8080/v1",
-    api_key="your-api-key",  # Forwarded safely without logging
+    api_key="sk-proj-EXAMPLE_NOT_A_REAL_KEY",  # Forwarded safely without logging
 )
 
 response = client.chat.completions.create(
@@ -95,7 +95,7 @@ Configuration precedence order:
 3. Configuration file (`--config firewall.toml` or `firewall.json`)
 4. Safe defaults (Host: `127.0.0.1`, Port: `8080`, Action: `ALLOW`)
 
-Example configuration files are provided in [`examples/firewall.toml`](../examples/firewall.toml) and [`examples/firewall.json`](../examples/firewall.json).
+Example configuration files are provided in [`examples/firewall.toml`](../examples/firewall.toml), [`examples/firewall.json`](../examples/firewall.json), and [`.env.example`](../.env.example).
 
 ---
 
@@ -108,12 +108,16 @@ This release is an early v0.1 open-source developer release. Please note the fol
 - **Network Boundaries**: Designed for localhost / single-container sidecar deployments, not as a multi-tenant public gateway.
 - **Telemetry**: Zero remote reporting; audit logging is local and privacy-safe.
 
+For planned future milestones, see [docs/roadmap.md](roadmap.md).
+For maintainer pre-release verification, see [docs/release-checklist.md](release-checklist.md).
+
 ---
 
 ## Validation Status
 
-- **Automated Tests**: 416 passed (100% passing rate)
+- **Automated Tests**: 426 passed (100% passing rate)
 - **Linter**: Ruff passing (0 errors)
 - **Formatter**: Ruff formatting verified
 - **Type Checker**: Pyright passing (0 errors)
 - **Package Build**: Wheel and sdist verified, clean install tested in isolated environment
+
