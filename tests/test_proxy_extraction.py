@@ -53,9 +53,7 @@ class TestPayloadExtraction:
     def test_extract_plain_text(self) -> None:
         """Verify extraction from text/plain body."""
         body = b"Generate a summary of the quarterly financials."
-        result = PayloadExtractor.extract(
-            body, "text/plain", ContentDirection.REQUEST
-        )
+        result = PayloadExtractor.extract(body, "text/plain", ContentDirection.REQUEST)
         assert result.is_inspectable is True
         assert len(result.items) == 1
         item = result.items[0]
@@ -129,9 +127,7 @@ class TestPayloadReconstruction:
         )
         replacements = {target_item.item_id: "[REDACTED_SECRET]"}
 
-        reconstructed_bytes = PayloadExtractor.reconstruct(
-            extraction, replacements
-        )
+        reconstructed_bytes = PayloadExtractor.reconstruct(extraction, replacements)
         reconstructed = json.loads(reconstructed_bytes.decode("utf-8"))
 
         # Invariants
@@ -144,12 +140,8 @@ class TestPayloadReconstruction:
         assert reconstructed["tags"] == ["alpha", "beta"]
 
         # Transformed field
-        assert (
-            reconstructed["messages"][0]["content"] == "[REDACTED_SECRET]"
-        )
-        assert (
-            reconstructed["messages"][1]["content"] == "Sure, I can help."
-        )
+        assert reconstructed["messages"][0]["content"] == "[REDACTED_SECRET]"
+        assert reconstructed["messages"][1]["content"] == "Sure, I can help."
 
     def test_reconstruct_plain_text(self) -> None:
         """Verify plain text replacement."""

@@ -154,9 +154,7 @@ class PayloadExtractor:
             for item_id, new_text in replacements.items():
                 if item_id in item_map:
                     target_item = item_map[item_id]
-                    cls._set_json_value_at_path(
-                        parsed_json, target_item.path, new_text
-                    )
+                    cls._set_json_value_at_path(parsed_json, target_item.path, new_text)
 
             return json.dumps(parsed_json, ensure_ascii=False).encode("utf-8")
 
@@ -275,15 +273,9 @@ class PayloadExtractor:
     @classmethod
     def _is_json_content_type(cls, content_type: str) -> bool:
         """Determine if a MIME type represents a JSON payload."""
-        return (
-            content_type == "application/json"
-            or content_type.endswith("+json")
-        )
+        return content_type == "application/json" or content_type.endswith("+json")
 
     @classmethod
     def _is_text_content_type(cls, content_type: str) -> bool:
         """Determine if a MIME type represents a plain-text payload."""
-        return (
-            content_type.startswith("text/")
-            and content_type != "text/event-stream"
-        )
+        return content_type.startswith("text/") and content_type != "text/event-stream"

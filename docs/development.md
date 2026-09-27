@@ -74,14 +74,33 @@ To contribute a new credential pattern recognizer to [`SecretDetector`](../src/a
    - Use strictly synthetic, fake placeholders.
    - Verify correct character start/end coordinates against `content[start:end]`.
 
-### How to Add a New Provider Adapter
-1. Create a module under `src/aifirewall/providers/` (e.g., `anthropic_adapter.py`).
-2. Implement the `ProviderAdapter` protocol:
-   - `normalize_request(raw_request: dict) -> NormalizedAIRequest`
-   - `normalize_response(raw_response: dict, request_id: str) -> NormalizedAIResponse`
-   - `denormalize_request(request: NormalizedAIRequest) -> dict`
-3. Ensure that missing or proprietary fields are mapped gracefully into the `metadata` dictionary without throwing unexpected exceptions.
-4. Add unit tests verifying bidirectional schema translation.
+### How to Add a New Provider Adapter (Contributor Checklist)
+
+To add support for a new AI provider family (e.g., Cohere, Mistral):
+
+1. **Subclass `BaseProviderAdapter`** in `src/aifirewall/providers/<provider_name>.py`:
+   - Implement `@property def provider_name(self) -> str`: Return stable lowercase identifier.
+   - Implement `@property def adapter_version(self) -> str`: Return implementation semantic version (e.g. `"1.0.0"`).
+   - Implement `can_handle_request(raw_request: dict[str, Any]) -> bool`: Structural heuristic to recognize payload shape.
+   - Implement `normalize_request(raw_request, request_id) -> NormalizedAIRequest`:
+     - Reject streaming (`stream=True`) with `UnsupportedStreamingError`.
+     - Extract `model`, map messages to `NormalizedMessage` with appropriate `ContentSource`.
+     - Separate text blocks for text detectors; preserve non-text blocks in message metadata.
+     - Never store credentials or API keys in `metadata` or `parameters`.
+   - Implement `denormalize_request(request, original_request) -> dict[str, Any]`: Reconstruct compliant provider JSON using transformed normalized messages.
+   - Implement `normalize_response(raw_response, request_id) -> NormalizedAIResponse`: Extract model name, finish reason, and textual completion content.
+   - Implement `denormalize_response(response, original_response) -> dict[str, Any]`: Reconstruct compliant provider response JSON with transformed text.
+2. **Register the Adapter in `ProviderRegistry`**:
+   - Add the adapter instance to `create_default_registry()` in `src/aifirewall/providers/registry.py`.
+   - Add the provider name to `SUPPORTED_PROVIDERS` in `src/aifirewall/proxy/config.py`.
+   - Export the adapter class from `src/aifirewall/providers/__init__.py` and `src/aifirewall/__init__.py`.
+3. **Mandatory Test Checklist**:
+   - **Contract Tests**: Verify the adapter passes all tests in `tests/test_provider_contract.py`.
+   - **Unit Tests**: Create `tests/test_provider_<provider_name>.py` covering normalization, denormalization, role mapping, multi-part blocks, tool calls, and error handling.
+   - **Round-Trip Tests**: Verify that `normalize -> redact -> denormalize` produces compliant provider payloads with redacted placeholders and zero raw secrets.
+   - **Privacy Tests**: Assert that Authorization headers and API keys never appear in parameters, metadata, or string representations.
+   - **Unsupported Variant Tests**: Verify unsupported variants and streaming options fail closed safely with typed errors.
+   - **No-Network Tests**: Ensure all tests run offline without network access or live provider SDKs.
 
 ### How to Add a Policy Rule (Contributor Guidance)
 
@@ -257,9 +276,12 @@ from aifirewall.proxy.upstream import UpstreamClient
 
 # Mock upstream ASGI app
 upstream_app = FastAPI()
+
+
 @upstream_app.post("/v1/chat/completions")
 async def mock_chat():
     return {"choices": [{"message": {"role": "assistant", "content": "Hello!"}}]}
+
 
 config = ProxyConfig(upstream_url="http://testupstream")
 upstream_client = UpstreamClient(config)

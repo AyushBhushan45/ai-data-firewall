@@ -14,6 +14,10 @@ import uvicorn
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse
 
+from aifirewall.providers.errors import (
+    UnsupportedPayloadError,
+    UnsupportedStreamingError,
+)
 from aifirewall.proxy.config import ProxyConfig
 from aifirewall.proxy.errors import (
     ERR_INVALID_REQUEST,
@@ -21,6 +25,8 @@ from aifirewall.proxy.errors import (
     ERR_PAYLOAD_TOO_LARGE,
     ERR_REQUEST_BLOCKED,
     ERR_RESPONSE_BLOCKED,
+    ERR_UNSUPPORTED_PAYLOAD,
+    ERR_UNSUPPORTED_STREAMING,
     ERR_UPSTREAM_TIMEOUT,
     ERR_UPSTREAM_UNAVAILABLE,
     BlockedRequestError,
@@ -58,11 +64,7 @@ def create_proxy_app(
     Returns:
         Configured FastAPI application instance.
     """
-    sec_pipeline = (
-        pipeline
-        if pipeline is not None
-        else SecurityPipeline(config=config)
-    )
+    sec_pipeline = pipeline if pipeline is not None else SecurityPipeline(config=config)
     upstream = (
         upstream_client
         if upstream_client is not None
@@ -94,9 +96,7 @@ def create_proxy_app(
         "/{full_path:path}",
         methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"],
     )
-    async def proxy_catch_all(
-        request: Request, full_path: str
-    ) -> Response:
+    async def proxy_catch_all(request: Request, full_path: str) -> Response:
         """Inspect inbound request, forward upstream, inspect response, and return."""
         method = request.method.upper()
 
@@ -127,16 +127,22 @@ def create_proxy_app(
         except PayloadTooLargeError as err:
             return JSONResponse(
                 status_code=err.status_code,
-                content=create_safe_error_payload(
-                    ERR_PAYLOAD_TOO_LARGE, str(err)
-                ),
+                content=create_safe_error_payload(ERR_PAYLOAD_TOO_LARGE, str(err)),
             )
         except BlockedRequestError as err:
             return JSONResponse(
                 status_code=err.status_code,
-                content=create_safe_error_payload(
-                    ERR_REQUEST_BLOCKED, str(err)
-                ),
+                content=create_safe_error_payload(ERR_REQUEST_BLOCKED, str(err)),
+            )
+        except UnsupportedStreamingError as err:
+            return JSONResponse(
+                status_code=400,
+                content=create_safe_error_payload(ERR_UNSUPPORTED_STREAMING, str(err)),
+            )
+        except UnsupportedPayloadError as err:
+            return JSONResponse(
+                status_code=400,
+                content=create_safe_error_payload(ERR_UNSUPPORTED_PAYLOAD, str(err)),
             )
         except Exception:
             return JSONResponse(
@@ -162,23 +168,17 @@ def create_proxy_app(
         except UpstreamTimeoutError as err:
             return JSONResponse(
                 status_code=err.status_code,
-                content=create_safe_error_payload(
-                    ERR_UPSTREAM_TIMEOUT, str(err)
-                ),
+                content=create_safe_error_payload(ERR_UPSTREAM_TIMEOUT, str(err)),
             )
         except UpstreamError as err:
             return JSONResponse(
                 status_code=err.status_code,
-                content=create_safe_error_payload(
-                    ERR_UPSTREAM_UNAVAILABLE, str(err)
-                ),
+                content=create_safe_error_payload(ERR_UPSTREAM_UNAVAILABLE, str(err)),
             )
         except PayloadTooLargeError as err:
             return JSONResponse(
                 status_code=502,
-                content=create_safe_error_payload(
-                    ERR_PAYLOAD_TOO_LARGE, str(err)
-                ),
+                content=create_safe_error_payload(ERR_PAYLOAD_TOO_LARGE, str(err)),
             )
 
         # 3. Outbound Response Processing
@@ -192,16 +192,12 @@ def create_proxy_app(
         except PayloadTooLargeError as err:
             return JSONResponse(
                 status_code=502,
-                content=create_safe_error_payload(
-                    ERR_PAYLOAD_TOO_LARGE, str(err)
-                ),
+                content=create_safe_error_payload(ERR_PAYLOAD_TOO_LARGE, str(err)),
             )
         except BlockedResponseError as err:
             return JSONResponse(
                 status_code=err.status_code,
-                content=create_safe_error_payload(
-                    ERR_RESPONSE_BLOCKED, str(err)
-                ),
+                content=create_safe_error_payload(ERR_RESPONSE_BLOCKED, str(err)),
             )
         except Exception:
             return JSONResponse(
@@ -243,9 +239,7 @@ class FirewallProxy:
         """
         self._config = config
         self._pipeline = (
-            pipeline
-            if pipeline is not None
-            else SecurityPipeline(config=config)
+            pipeline if pipeline is not None else SecurityPipeline(config=config)
         )
         self._upstream = (
             upstream_client

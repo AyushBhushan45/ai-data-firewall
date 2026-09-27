@@ -36,6 +36,21 @@ from aifirewall.protocols import (
     ContentTransformer,
     ProviderAdapter,
 )
+from aifirewall.providers import (
+    AnthropicAdapter,
+    BaseProviderAdapter,
+    DenormalizationError,
+    GeminiAdapter,
+    NormalizationError,
+    OllamaAdapter,
+    OpenAIAdapter,
+    ProviderAdapterError,
+    ProviderRegistry,
+    UnsupportedPayloadError,
+    UnsupportedProviderError,
+    UnsupportedStreamingError,
+    create_default_registry,
+)
 from aifirewall.proxy import (
     DetectorRegistry,
     FirewallProxy,
@@ -93,4 +108,19 @@ __all__ = [
     "AuditSink",
     "ContentTransformer",
     "ProviderAdapter",
+    # Provider adapters & registry
+    "BaseProviderAdapter",
+    "ProviderRegistry",
+    "create_default_registry",
+    "OpenAIAdapter",
+    "AnthropicAdapter",
+    "GeminiAdapter",
+    "OllamaAdapter",
+    # Provider error hierarchy
+    "ProviderAdapterError",
+    "NormalizationError",
+    "DenormalizationError",
+    "UnsupportedProviderError",
+    "UnsupportedPayloadError",
+    "UnsupportedStreamingError",
 ]

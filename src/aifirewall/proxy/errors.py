@@ -26,6 +26,8 @@ ERR_UPSTREAM_UNAVAILABLE = "upstream_unavailable"
 ERR_UPSTREAM_TIMEOUT = "upstream_timeout"
 ERR_METHOD_NOT_ALLOWED = "method_not_allowed"
 ERR_INVALID_REQUEST = "invalid_request"
+ERR_UNSUPPORTED_STREAMING = "unsupported_streaming"
+ERR_UNSUPPORTED_PAYLOAD = "unsupported_payload"
 ERR_INTERNAL_ERROR = "firewall_internal_error"
 
 

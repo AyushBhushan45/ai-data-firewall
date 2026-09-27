@@ -50,9 +50,7 @@ def fake_upstream_app() -> tuple[FastAPI, list[dict[str, Any]]]:
     recorded_requests: list[dict[str, Any]] = []
     upstream = FastAPI()
 
-    @upstream.api_route(
-        "/{path:path}", methods=["GET", "POST", "PUT", "DELETE"]
-    )
+    @upstream.api_route("/{path:path}", methods=["GET", "POST", "PUT", "DELETE"])
     async def echo_or_mock(request: Request, path: str) -> Response:
         body = await request.body()
         req_record = {
@@ -157,17 +155,12 @@ class TestProxyEndToEnd:
                 assert resp.status_code == 200
                 assert len(recorded) == 1
                 assert recorded[0]["path"] == "v1/chat/completions"
-                assert (
-                    recorded[0]["headers"]["authorization"]
-                    == "Bearer test-api-key"
-                )
+                assert recorded[0]["headers"]["authorization"] == "Bearer test-api-key"
                 assert json.loads(recorded[0]["body"]) == req_data
 
         _run(_test())
 
-    def test_request_secret_blocked(
-        self, upstream_client_factory: Any
-    ) -> None:
+    def test_request_secret_blocked(self, upstream_client_factory: Any) -> None:
         """Request with secret matching BLOCK returns 403; upstream receives nothing."""
 
         async def _test() -> None:
@@ -208,9 +201,7 @@ class TestProxyEndToEnd:
 
         _run(_test())
 
-    def test_request_secret_redacted(
-        self, upstream_client_factory: Any
-    ) -> None:
+    def test_request_secret_redacted(self, upstream_client_factory: Any) -> None:
         """Request with secret matching REDACT forwards sanitized body upstream."""
 
         async def _test() -> None:
@@ -249,9 +240,7 @@ class TestProxyEndToEnd:
 
         _run(_test())
 
-    def test_request_secret_warn(
-        self, upstream_client_factory: Any
-    ) -> None:
+    def test_request_secret_warn(self, upstream_client_factory: Any) -> None:
         """Request containing secret with WARN rule forwards unmodified body."""
 
         async def _test() -> None:
@@ -273,18 +262,14 @@ class TestProxyEndToEnd:
 
             async with _test_client(app) as client:
                 secret_value = "sk-1234567890abcdef12345678"
-                resp = await client.post(
-                    "/v1/chat", json={"prompt": secret_value}
-                )
+                resp = await client.post("/v1/chat", json={"prompt": secret_value})
                 assert resp.status_code == 200
                 assert len(recorded) == 1
                 assert secret_value in recorded[0]["body"].decode("utf-8")
 
         _run(_test())
 
-    def test_response_secret_blocked(
-        self, upstream_client_factory: Any
-    ) -> None:
+    def test_response_secret_blocked(self, upstream_client_factory: Any) -> None:
         """Response with secret matching BLOCK returns 502 with dropped body."""
 
         async def _test() -> None:
@@ -320,9 +305,7 @@ class TestProxyEndToEnd:
 
         _run(_test())
 
-    def test_response_secret_redacted(
-        self, upstream_client_factory: Any
-    ) -> None:
+    def test_response_secret_redacted(self, upstream_client_factory: Any) -> None:
         """Upstream response with secret matching REDACT rule is sanitized."""
 
         async def _test() -> None:
@@ -356,9 +339,7 @@ class TestProxyEndToEnd:
 
         _run(_test())
 
-    def test_anti_open_proxy_header_ignored(
-        self, upstream_client_factory: Any
-    ) -> None:
+    def test_anti_open_proxy_header_ignored(self, upstream_client_factory: Any) -> None:
         """Client-supplied target override headers cannot redirect proxy."""
 
         async def _test() -> None:
@@ -401,9 +382,7 @@ class TestProxyEndToEnd:
 
         _run(_test())
 
-    def test_oversized_response_rejected(
-        self, upstream_client_factory: Any
-    ) -> None:
+    def test_oversized_response_rejected(self, upstream_client_factory: Any) -> None:
         """Upstream response larger than max_response_body_bytes returns 502."""
 
         async def _test() -> None:
@@ -418,9 +397,7 @@ class TestProxyEndToEnd:
             )
 
             async with _test_client(app) as client:
-                resp = await client.get(
-                    "/huge", headers={"x-mock-huge-response": "1"}
-                )
+                resp = await client.get("/huge", headers={"x-mock-huge-response": "1"})
                 assert resp.status_code == 502
                 assert resp.json()["error"]["code"] == "payload_too_large"
 
@@ -446,9 +423,7 @@ class TestProxyEndToEnd:
         """When upstream is unreachable, proxy returns safe 502 without traceback."""
 
         async def _test() -> None:
-            config = ProxyConfig(
-                upstream_url="http://127.0.0.1:1", connect_timeout=0.2
-            )
+            config = ProxyConfig(upstream_url="http://127.0.0.1:1", connect_timeout=0.2)
             app = create_proxy_app(config)
             async with _test_client(app) as client:
                 resp = await client.get("/status")

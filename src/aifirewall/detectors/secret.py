@@ -18,35 +18,37 @@ from aifirewall.models.content import ContentLocation
 from aifirewall.models.detection import DetectionResult
 
 # Common placeholder substrings that indicate dummy / non-secret values
-_COMMON_PLACEHOLDERS: frozenset[str] = frozenset({
-    "your_api_key",
-    "your_token",
-    "your_secret",
-    "your_key",
-    "your_password",
-    "replace_me",
-    "replace-me",
-    "changeme",
-    "change_me",
-    "change-me",
-    "<api_key>",
-    "<your_secret>",
-    "<your_token>",
-    "<your_api_key>",
-    "example-token",
-    "example_token",
-    "dummy-token",
-    "dummy_token",
-    "test-token",
-    "test_token",
-    "fake_token",
-    "sample_token",
-    "my_secret_key",
-    "insert_key_here",
-    "xxxx",
-    "yyyy",
-    "zzzz",
-})
+_COMMON_PLACEHOLDERS: frozenset[str] = frozenset(
+    {
+        "your_api_key",
+        "your_token",
+        "your_secret",
+        "your_key",
+        "your_password",
+        "replace_me",
+        "replace-me",
+        "changeme",
+        "change_me",
+        "change-me",
+        "<api_key>",
+        "<your_secret>",
+        "<your_token>",
+        "<your_api_key>",
+        "example-token",
+        "example_token",
+        "dummy-token",
+        "dummy_token",
+        "test-token",
+        "test_token",
+        "fake_token",
+        "sample_token",
+        "my_secret_key",
+        "insert_key_here",
+        "xxxx",
+        "yyyy",
+        "zzzz",
+    }
+)
 
 
 def _is_placeholder(val: str) -> bool:
@@ -180,9 +182,7 @@ class SecretDetector:
             # 1. OpenAI-style API keys (standard sk-... or sk-proj-...)
             SecretPattern(
                 name="openai_api_key",
-                regex=re.compile(
-                    r"\b(sk-(?:proj-)?[A-Za-z0-9_-]{20,})\b"
-                ),
+                regex=re.compile(r"\b(sk-(?:proj-)?[A-Za-z0-9_-]{20,})\b"),
                 description="Possible OpenAI API key detected.",
                 severity=Severity.HIGH,
                 confidence=0.95,
@@ -339,8 +339,17 @@ class SecretDetector:
 
                     loc = ContentLocation(
                         source=context.source,
+                        message_index=context.location.message_index
+                        if context.location
+                        else None,
+                        block_index=context.location.block_index
+                        if context.location
+                        else None,
                         char_start=start,
                         char_end=end,
+                        field_path=context.location.field_path
+                        if context.location
+                        else None,
                     )
                     finding = DetectionResult(
                         detection_id=f"det-{uuid.uuid4().hex[:12]}",

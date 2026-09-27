@@ -35,9 +35,7 @@ class FakeBenignDetector:
     def supported_categories(self) -> tuple[DetectionCategory, ...]:
         return (DetectionCategory.SECRET,)
 
-    def detect(
-        self, content: str, context: DetectorContext
-    ) -> list[DetectionResult]:
+    def detect(self, content: str, context: DetectorContext) -> list[DetectionResult]:
         return []
 
 
@@ -60,9 +58,7 @@ class FakeFindingDetector:
     def supported_categories(self) -> tuple[DetectionCategory, ...]:
         return (DetectionCategory.SECRET,)
 
-    def detect(
-        self, content: str, context: DetectorContext
-    ) -> list[DetectionResult]:
+    def detect(self, content: str, context: DetectorContext) -> list[DetectionResult]:
         results: list[DetectionResult] = []
         needle = "TRIGGER"
         idx = content.find(needle)
@@ -105,9 +101,7 @@ class FakeFailingDetector:
     def supported_categories(self) -> tuple[DetectionCategory, ...]:
         return (DetectionCategory.OTHER,)
 
-    def detect(
-        self, content: str, context: DetectorContext
-    ) -> list[DetectionResult]:
+    def detect(self, content: str, context: DetectorContext) -> list[DetectionResult]:
         raise DetectorError(self.name, "Failed to inspect content due to syntax error")
 
 

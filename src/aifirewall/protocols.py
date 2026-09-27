@@ -31,7 +31,23 @@ class ProviderAdapter(Protocol):
         """Identifier of the AI provider."""
         ...
 
-    def normalize_request(self, raw_request: dict[str, Any]) -> NormalizedAIRequest:
+    @property
+    def adapter_version(self) -> str:
+        """Version of the provider adapter implementation."""
+        ...
+
+    @property
+    def version(self) -> str:
+        """Convenience alias for adapter_version."""
+        ...
+
+    def can_handle_request(self, raw_request: dict[str, Any]) -> bool:
+        """Determine if payload matches this provider's schema."""
+        ...
+
+    def normalize_request(
+        self, raw_request: dict[str, Any], request_id: str | None = None
+    ) -> NormalizedAIRequest:
         """Convert a provider-specific request payload into a NormalizedAIRequest."""
         ...
 
@@ -41,8 +57,20 @@ class ProviderAdapter(Protocol):
         """Convert a provider response payload into a NormalizedAIResponse."""
         ...
 
-    def denormalize_request(self, request: NormalizedAIRequest) -> dict[str, Any]:
+    def denormalize_request(
+        self,
+        request: NormalizedAIRequest,
+        original_request: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """Convert NormalizedAIRequest back to provider native payload schema."""
+        ...
+
+    def denormalize_response(
+        self,
+        response: NormalizedAIResponse,
+        original_response: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Convert NormalizedAIResponse back to provider native response schema."""
         ...
 
 

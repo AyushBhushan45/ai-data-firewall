@@ -279,9 +279,18 @@ $$\mathbf{DETECTION \ne POLICY \ne TRANSFORMATION}$$
 - **Configurable Body Limits**: Requests exceeding `max_request_body_bytes` return HTTP `413 Payload Too Large`; responses exceeding `max_response_body_bytes` return HTTP `502 Bad Gateway`.
 - **Comprehensive Timeouts**: Dedicated connection, read, write, and total deadlines prevent connection hanging or Slowloris resource exhaustion.
 
+### Provider Adapter Normalization & Safe Reconstruction (Step 9)
+- **Normalization Before Detection**: Inbound provider requests (OpenAI, Anthropic, Gemini, Ollama) are parsed and converted to canonical `NormalizedAIRequest` / `NormalizedAIResponse` models before any detector executes. Detectors scan normalized text, not raw JSON.
+- **Offset Safety via Denormalization**: `RedactionEngine` replaces sensitive text spans right-to-left in normalized message strings. The adapter then reconstructs a compliant provider payload using the transformed normalized content. No regex or substring replacements are ever attempted against serialized provider JSON.
+- **Unsupported Provider Safety**: If an unrecognized provider name is configured (e.g., `provider="unknown"`), initialization fails immediately at startup with `ConfigurationError`.
+- **Fail-Closed Streaming**: Requests with `stream: True` are recognized and rejected with HTTP `400 Bad Request` (`unsupported_streaming`). The proxy never claims a stream was inspected when streaming is deferred.
+- **Multimodal Content Preservation**: Non-text parts (e.g. image URLs, inline data) are preserved intact without corruption or arbitrary stringification, but are marked non-inspectable for text detectors.
+- **Zero Credential Leakage in Adapters**: Provider adapters explicitly ignore and discard authentication keys, bearer tokens, and credentials from payload bodies. Credentials are never written to normalized metadata, parameters, or logs.
+- **Strict Anti-Open-Proxy Invariant Maintained**: Provider selection establishes schema normalization only. Network routing remains strictly bound to the configured `upstream_url`. Client headers or payload parameters cannot redirect traffic.
+
 ### Explicit Limitations (Pre-Alpha)
-- **SSE Streaming**: Server-Sent Events (`text/event-stream`) inspection is deferred to future milestones.
-- **Binary Content**: Non-text content types (e.g. `image/*`, `application/octet-stream`) are passed through without semantic inspection.
-- **Provider-Specific Adapters**: OpenAI/Anthropic/Gemini schema normalization is deferred to Step 9.
+- **SSE Streaming**: Server-Sent Events (`text/event-stream`) token buffering is deferred.
+- **WebSockets**: Real-time duplex channels are deferred.
+- **Multimodal Scanning**: Semantic inspection of images/audio/video is deferred; non-text blocks are preserved safely without corruption.
 
 

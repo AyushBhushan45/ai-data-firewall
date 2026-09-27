@@ -1,14 +1,15 @@
 # AI Data Firewall: Complete System Architecture & Technical Design
 
 > [!IMPORTANT]
-> **Redaction Engine Milestone (Step 7 Implemented)**
+> **Provider Adapters & AI Normalization Milestone (Step 9 Implemented)**
 >
-> Step 7 implements the deterministic content transformation layer:
-> - **`RedactionEngine`** ([`src/aifirewall/transformation/redaction.py`](../src/aifirewall/transformation/redaction.py)): Executes deterministic, policy-controlled string mutations.
-> - **Domain Models**: `RedactionResult` ([`src/aifirewall/transformation/models.py`](../src/aifirewall/transformation/models.py)).
-> - **Core Guarantees**: Strict architectural boundary ($\mathbf{DETECTION \ne POLICY \ne TRANSFORMATION}$), right-to-left replacement preserving string offsets, deterministic overlap and nesting clustering ($\mathbf{Severity > Confidence > Span\ Length > ID}$), safe semantic placeholders (`[REDACTED_SECRET]`), strict span coordinate validation, caller-owned argument immutability, zero secret persistence, and privacy-safe representations (`__repr__` and `__str__` exclude raw/transformed text).
+> Step 9 makes the firewall provider-aware without making the security engine provider-dependent:
+> - **`ProviderAdapter` & `ProviderRegistry`** ([`src/aifirewall/providers/`](../src/aifirewall/providers/)): Modular translator architecture supporting OpenAI (`openai`), Anthropic (`anthropic`), Gemini (`gemini`), and Ollama (`ollama`).
+> - **Normalization Pipeline**: Translates provider HTTP payloads into normalized domain models (`NormalizedAIRequest`, `NormalizedAIResponse`, `NormalizedMessage`), inspects normalized text, evaluates policies, redacts normalized text right-to-left, and denormalizes back into compliant provider formats.
+> - **Security Separation**: Detectors, PolicyEngine, and RedactionEngine remain 100% provider-agnostic with zero imports of provider-specific adapter classes.
+> - **Core Guarantees**: Fixed upstream routing remains strictly enforced; streaming requests fail-closed with safe errors; non-text parts preserved intact without corruption; zero raw credential leakage.
 >
-> **Explicit Boundary:** HTTP proxy daemons, PII detectors, prompt-injection detectors, database persistence, telemetry, and provider adapters remain **PLANNED FOR FUTURE STEPS**.
+> **Explicit Boundary:** SSE streaming token buffering, WebSockets, multimodal semantic scanners, databases, and external telemetry remain **INTENTIONALLY DEFERRED**.
 
 ---
 
@@ -576,5 +577,56 @@ AI APPLICATION ◄────────────────────�
 - **Generic Semantic Traversal**: JSON payloads are recursively inspected at string value nodes. All non-string fields (ints, floats, bools, nulls, array order, object keys) are 100% preserved. Reconstructed JSON is guaranteed valid.
 - **Hop-by-Hop Header Stripping**: Transport-specific headers (`Connection`, `Upgrade`, `Keep-Alive`, etc.) are stripped.
 - **Zero Raw Secret Disclosure**: Raw secrets, credentials, and Authorization tokens are never logged, never included in error payloads, and never leaked in exceptions.
-- **Explicit Step 8 Boundaries**: Provider-specific adapters (OpenAI/Anthropic/Gemini) are deferred to Step 9; SSE streaming and binary parsing are intentionally deferred.
+- **Explicit Step 8 Boundaries**: Generic string traversal served as the foundation; Step 9 introduces modular provider adapters for rich AI payload semantics.
+
+---
+
+## 16. Provider Adapters & AI Normalization Architecture (Step 9)
+
+Step 9 integrates provider-aware payload translation into the reverse proxy without introducing provider dependencies into the core security engine.
+
+```text
+             PROVIDER HTTP PAYLOAD
+                     ↓
+            Provider Adapter
+                     ↓
+             Normalized AI Model
+                     ↓
+    ┌─────────────────────────────────┐
+    │ Existing Security Core          │
+    │                                 │
+    │ Detector(s)                     │
+    │       ↓                         │
+    │ PolicyEngine                    │
+    │       ↓                         │
+    │ RedactionEngine                 │
+    └─────────────────────────────────┘
+                     ↓
+             Normalized AI Model
+                     ↓
+            Provider Adapter
+                     ↓
+          Provider HTTP PAYLOAD
+```
+
+### Why Normalization Exists
+1. **Schema Independence**: The security core (`SecretDetector`, `PolicyEngine`, `RedactionEngine`) operates strictly on normalized models (`NormalizedAIRequest`, `NormalizedAIResponse`, `NormalizedMessage`). Detectors never inspect raw provider JSON directly and never contain provider-specific parsing heuristics.
+2. **Offset Safety & Structural Reconstruction**: Detectors emit character spans relative to normalized message text. When redaction occurs, `RedactionEngine` mutates the normalized text string safely using right-to-left substitution. The provider adapter then reconstructs valid provider JSON using the transformed normalized content. This eliminates brittle regex replacements on serialized JSON.
+3. **Cross-Provider Security Consistency**: The same synthetic secret in a user prompt triggers identical `DetectionCategory.SECRET` classification, severity, and policy enforcement regardless of whether the client speaks OpenAI, Anthropic, Gemini, or Ollama JSON.
+
+### Provider Support Matrix
+
+| Provider | Adapter | Non-Streaming | Request Normalization | Response Normalization | Request Redaction | Response Redaction | Streaming |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **OpenAI** | `OpenAIAdapter` | Supported | Supported | Supported | Supported | Supported | Deferred (Fails Safe) |
+| **Anthropic** | `AnthropicAdapter` | Supported | Supported | Supported | Supported | Supported | Deferred (Fails Safe) |
+| **Gemini** | `GeminiAdapter` | Supported | Supported | Supported | Supported | Supported | Deferred (Fails Safe) |
+| **Ollama** | `OllamaAdapter` | Supported | Supported | Supported | Supported | Supported | Deferred (Fails Safe) |
+
+### Architectural Guarantees:
+- **No Provider Knowledge in Security Core**: `SecretDetector`, `PolicyEngine`, and `RedactionEngine` do not import adapter modules.
+- **Trusted Upstream Routing**: The configured `upstream_url` remains the sole outbound destination. Provider selection (`ProxyConfig.provider`) determines schema translation only and cannot alter transport destination.
+- **Fail-Safe Streaming**: Requests with `stream: True` are recognized and rejected with HTTP 400 (`unsupported_streaming`). The proxy never claims a stream was inspected when streaming is not implemented.
+- **Multimodal Content Preservation**: Non-text content blocks (images, audio, inline data) are preserved intact without corruption or arbitrary stringification.
+- **Independent Versioning**: Adapters expose `adapter_version = "1.0.0"`, reflecting implementation version independently from remote provider API versions.
 

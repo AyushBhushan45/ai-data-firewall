@@ -143,9 +143,7 @@ class PolicyRule:
             self.category, DetectionCategory
         ):
             try:
-                object.__setattr__(
-                    self, "category", DetectionCategory(self.category)
-                )
+                object.__setattr__(self, "category", DetectionCategory(self.category))
             except (ValueError, TypeError) as err:
                 raise ValidationError(
                     f"Invalid detection category: {self.category}"
@@ -176,9 +174,7 @@ class PolicyRule:
             self.direction, ContentDirection
         ):
             try:
-                object.__setattr__(
-                    self, "direction", ContentDirection(self.direction)
-                )
+                object.__setattr__(self, "direction", ContentDirection(self.direction))
             except (ValueError, TypeError) as err:
                 raise ValidationError(
                     f"Invalid content direction: {self.direction}"
@@ -246,9 +242,7 @@ class PolicyContext:
             self.direction, ContentDirection
         ):
             try:
-                object.__setattr__(
-                    self, "direction", ContentDirection(self.direction)
-                )
+                object.__setattr__(self, "direction", ContentDirection(self.direction))
             except (ValueError, TypeError) as err:
                 raise ValidationError(
                     f"Invalid context direction: {self.direction}"
@@ -258,6 +252,4 @@ class PolicyContext:
             try:
                 object.__setattr__(self, "source", ContentSource(self.source))
             except (ValueError, TypeError) as err:
-                raise ValidationError(
-                    f"Invalid context source: {self.source}"
-                ) from err
+                raise ValidationError(f"Invalid context source: {self.source}") from err

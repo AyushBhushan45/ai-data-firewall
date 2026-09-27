@@ -418,11 +418,10 @@ class RedactionEngine:
         3. Span length: (char_end - char_start) descending
         4. Detection ID: lexicographical ascending
         """
+
         def sort_key(d: DetectionResult) -> tuple[int, float, int, str]:
             sev = (
-                d.severity
-                if isinstance(d.severity, Severity)
-                else Severity(d.severity)
+                d.severity if isinstance(d.severity, Severity) else Severity(d.severity)
             )
             sev_rank = SEVERITY_ORDER.get(sev, 0)
             conf = d.confidence

@@ -7,11 +7,11 @@ An open-source, local-first security layer for AI applications.
 ## Project Status
 
 > [!NOTE]
-> **Current Status: Early Development (Pre-Alpha — Step 8 Local Reverse Proxy + Security Pipeline Implemented)**
+> **Current Status: Early Development (Pre-Alpha — Step 9 Provider Adapters + AI Normalization Implemented)**
 >
-> The project contains foundational domain models, detector interfaces, `SecretDetector`, the declarative policy engine (`PolicyEngine`), the content transformation layer (`RedactionEngine`), and the local HTTP reverse proxy (`FirewallProxy`, `SecurityPipeline`, `ProxyConfig`).
+> The project contains foundational domain models, detector interfaces, `SecretDetector`, the declarative policy engine (`PolicyEngine`), the content transformation layer (`RedactionEngine`), the local HTTP reverse proxy (`SecurityPipeline`, `ProxyConfig`), and modular provider adapters for OpenAI, Anthropic, Gemini, and Ollama.
 >
-> **Honest Pre-Alpha Boundaries**: The proxy currently provides provider-agnostic reverse-proxying with generic JSON and text inspection. Provider-specific normalization (OpenAI, Anthropic, Gemini) belongs to Step 9. Streaming SSE tokens (`text/event-stream`), binary media inspection, and hosted cloud deployments are **not yet implemented**. Do not use in production internet-facing environments.
+> **Honest Pre-Alpha Boundaries**: Non-streaming request and response normalization, security inspection, and right-to-left redaction are supported across four documented provider families. Streaming SSE tokens (`text/event-stream`), WebSockets, multimodal semantic scanning, databases, and hosted cloud deployments are **intentionally deferred**. Do not use in production internet-facing environments.
 
 ---
 
@@ -136,6 +136,19 @@ The following capabilities represent the planned roadmap and are **NOT YET IMPLE
 
 ---
 
+## Supported Provider Adapters
+
+The firewall includes modular provider adapters translating between provider-specific JSON schemas and normalized domain models:
+
+| Provider | Adapter | Non-Streaming | Request Normalization | Response Normalization | Request Redaction | Response Redaction | Streaming |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **OpenAI** | `OpenAIAdapter` | Supported | Supported | Supported | Supported | Supported | Deferred (Fails Safe) |
+| **Anthropic** | `AnthropicAdapter` | Supported | Supported | Supported | Supported | Supported | Deferred (Fails Safe) |
+| **Gemini** | `GeminiAdapter` | Supported | Supported | Supported | Supported | Supported | Deferred (Fails Safe) |
+| **Ollama** | `OllamaAdapter` | Supported | Supported | Supported | Supported | Supported | Deferred (Fails Safe) |
+
+---
+
 ## Roadmap
 
 Development is structured into incremental phases:
@@ -145,8 +158,8 @@ Development is structured into incremental phases:
 - **Phase 2: Core Detection Engine** *(In Progress — SecretDetector Implemented)* — Scanning protocols, high-confidence secret and credential detection, test fixtures.
 - **Phase 3: Policy Engine** *(Complete)* — Declarative rule evaluation (allow, warn, redact, block) and conflict resolution.
 - **Phase 4: Transformation Layer** *(Complete — RedactionEngine Implemented)* — Safe string masking and redaction without payload corruption.
-- **Phase 5: Provider Normalization & Mock Provider** — OpenAI/Anthropic format normalizers and offline test harness.
-- **Phase 6: Local Proxy Daemon** — Minimal HTTP forwarding and reverse-proxy engine.
+- **Phase 5: Local Proxy Daemon** *(Complete — Step 8 Implemented)* — Local HTTP reverse proxy, anti-open-proxy protections, body-size limits.
+- **Phase 6: Provider Normalization Adapters** *(Complete — Step 9 Implemented)* — OpenAI, Anthropic, Gemini, Ollama adapters and round-trip transformation.
 - **Phase 7: Developer Tooling & CLI** — Command-line interface and configuration validation.
 
 ---

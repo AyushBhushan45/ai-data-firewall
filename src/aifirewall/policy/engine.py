@@ -148,9 +148,7 @@ class PolicyEngine:
                 ordered_matched_rules.append(r.rule_id)
 
         # 6. Generate a privacy-safe, non-sensitive explanation
-        safe_reason = self._format_decision_reason(
-            winning_rule, winning_detection
-        )
+        safe_reason = self._format_decision_reason(winning_rule, winning_detection)
 
         return PolicyDecision(
             action=winning_rule.action,
@@ -227,9 +225,7 @@ class PolicyEngine:
         return True
 
     @staticmethod
-    def _format_decision_reason(
-        rule: PolicyRule, detection: DetectionResult
-    ) -> str:
+    def _format_decision_reason(rule: PolicyRule, detection: DetectionResult) -> str:
         """Generate a privacy-safe diagnostic explanation for the policy decision.
 
         Security Rule: Never include raw secrets, unredacted prompts, or sensitive

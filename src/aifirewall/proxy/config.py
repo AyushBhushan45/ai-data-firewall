@@ -29,6 +29,9 @@ DEFAULT_ALLOWED_METHODS: tuple[str, ...] = (
 )
 
 ALLOWED_UPSTREAM_SCHEMES: frozenset[str] = frozenset({"http", "https"})
+SUPPORTED_PROVIDERS: frozenset[str] = frozenset(
+    {"openai", "anthropic", "gemini", "ollama"}
+)
 
 
 @dataclass(frozen=True)
@@ -69,6 +72,7 @@ class ProxyConfig:
     allowed_http_methods: tuple[str, ...] = DEFAULT_ALLOWED_METHODS
     request_inspection_enabled: bool = True
     response_inspection_enabled: bool = True
+    provider: str | None = None
 
     def __post_init__(self) -> None:
         """Validate proxy configuration invariants."""
@@ -136,9 +140,7 @@ class ProxyConfig:
                     f"{name} must be a positive number, got {type(value).__name__}"
                 )
             if value <= 0:
-                raise ConfigurationError(
-                    f"{name} must be greater than 0, got {value}"
-                )
+                raise ConfigurationError(f"{name} must be greater than 0, got {value}")
             object.__setattr__(self, name, float(value))
 
         # 5. Validate body size limits
@@ -181,6 +183,19 @@ class ProxyConfig:
                 )
             normalized_methods.append(upper_m)
 
-        object.__setattr__(
-            self, "allowed_http_methods", tuple(normalized_methods)
-        )
+        object.__setattr__(self, "allowed_http_methods", tuple(normalized_methods))
+
+        # 7. Validate provider if configured
+        if self.provider is not None:
+            if not isinstance(self.provider, str) or not self.provider.strip():
+                raise ConfigurationError(
+                    "provider must be a non-empty string when configured"
+                )
+            clean_provider = self.provider.strip().lower()
+            if clean_provider not in SUPPORTED_PROVIDERS:
+                supported_list = ", ".join(repr(p) for p in sorted(SUPPORTED_PROVIDERS))
+                raise ConfigurationError(
+                    f"Unsupported provider: {self.provider!r}. "
+                    f"Supported providers: [{supported_list}]"
+                )
+            object.__setattr__(self, "provider", clean_provider)

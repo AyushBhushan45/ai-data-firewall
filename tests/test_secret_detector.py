@@ -88,9 +88,7 @@ def test_invalid_content_type_raises_validation_error(
 # -------------------------------------------------------------------------
 
 
-def test_openai_api_key_detected(
-    detector: SecretDetector, context: DetectorContext
-):
+def test_openai_api_key_detected(detector: SecretDetector, context: DetectorContext):
     """Verify standard and project-scoped OpenAI keys are recognized."""
     fake_key = "sk-abcdefghijklmnopqrstuvwxyz1234567890"
     text = f"My key is {fake_key} for testing."
@@ -110,9 +108,7 @@ def test_openai_api_key_detected(
     assert text[start:end] == fake_key
 
 
-def test_openai_proj_key_detected(
-    detector: SecretDetector, context: DetectorContext
-):
+def test_openai_proj_key_detected(detector: SecretDetector, context: DetectorContext):
     """Verify modern sk-proj- prefixed OpenAI keys are recognized."""
     fake_key = "sk-proj-abcdef1234567890abcdef1234567890xyz"
     text = f"Config: {fake_key}"
@@ -156,9 +152,7 @@ def test_github_tokens_detected(
 # -------------------------------------------------------------------------
 
 
-def test_google_api_key_detected(
-    detector: SecretDetector, context: DetectorContext
-):
+def test_google_api_key_detected(detector: SecretDetector, context: DetectorContext):
     """Verify Google AIza-prefixed API key format is detected."""
     fake_key = "AIzaSyDummyKey1234567890abcdefghijklm"
     text = f"const apiKey = '{fake_key}';"
@@ -213,9 +207,7 @@ def test_slack_tokens_detected(
     text = f"slack_token: {fake_slack}"
     findings = detector.detect(text, context)
 
-    slack_matches = [
-        f for f in findings if f.metadata.get("pattern") == "slack_token"
-    ]
+    slack_matches = [f for f in findings if f.metadata.get("pattern") == "slack_token"]
     assert len(slack_matches) == 1
     start = slack_matches[0].location.char_start
     end = slack_matches[0].location.char_end
@@ -227,9 +219,7 @@ def test_slack_tokens_detected(
 # -------------------------------------------------------------------------
 
 
-def test_jwt_token_detected(
-    detector: SecretDetector, context: DetectorContext
-):
+def test_jwt_token_detected(detector: SecretDetector, context: DetectorContext):
     """Verify 3-part base64url JWT structure is recognized."""
     fake_jwt = (
         "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9."
@@ -302,20 +292,20 @@ def test_explicit_assignments_detected(
     findings1 = detector.detect(text1, context)
     assert len(findings1) >= 1
     loc1 = findings1[0].location
-    assert text1[loc1.char_start:loc1.char_end] == val
+    assert text1[loc1.char_start : loc1.char_end] == val
 
     text2 = f"{key}: '{val}'"
     findings2 = detector.detect(text2, context)
     assert len(findings2) >= 1
     loc2 = findings2[0].location
-    assert text2[loc2.char_start:loc2.char_end] == val
+    assert text2[loc2.char_start : loc2.char_end] == val
 
 
 def test_empty_assignment_does_not_trigger(
     detector: SecretDetector, context: DetectorContext
 ):
     """Verify assignments with empty values are ignored."""
-    text = 'api_key="" and password=\'\''
+    text = "api_key=\"\" and password=''"
     assert detector.detect(text, context) == []
 
 

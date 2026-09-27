@@ -28,9 +28,7 @@ class ContentLocation:
                 f"message_index cannot be negative: {self.message_index}"
             )
         if self.block_index is not None and self.block_index < 0:
-            raise ValidationError(
-                f"block_index cannot be negative: {self.block_index}"
-            )
+            raise ValidationError(f"block_index cannot be negative: {self.block_index}")
         if self.char_start is not None and self.char_start < 0:
             raise ValidationError(f"char_start cannot be negative: {self.char_start}")
         if self.char_end is not None and self.char_end < 0:

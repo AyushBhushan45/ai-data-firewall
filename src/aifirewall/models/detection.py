@@ -64,4 +64,3 @@ class DetectionResult:
             f"detected by {self.detector_name}"
         )
         return f"{prefix} (confidence: {self.confidence:.2f}): {self.description}"
-

@@ -89,9 +89,7 @@ def test_1_policy_engine_can_be_instantiated():
 
 def test_2_empty_detection_list_returns_allow():
     """2. Empty detection list returns default ALLOW decision."""
-    engine = PolicyEngine(
-        rules=[PolicyRule(rule_id="r1", action=PolicyAction.BLOCK)]
-    )
+    engine = PolicyEngine(rules=[PolicyRule(rule_id="r1", action=PolicyAction.BLOCK)])
     decision = engine.evaluate([])
     assert decision.action == PolicyAction.ALLOW
     assert decision.reason == "No detections to evaluate."
